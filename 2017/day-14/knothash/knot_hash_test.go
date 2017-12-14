@@ -1,0 +1,9 @@
+package knothash
+
+import "testing"
+
+import "github.com/stretchr/testify/assert"
+
+func TestSum(t *testing.T) {
+	assert.Equal(t, "decdf7d377879877173b7f2fb131cf1b", HexDigest([]byte("70,66,255,2,48,0,54,48,80,141,244,254,160,108,1,41")))
+}
