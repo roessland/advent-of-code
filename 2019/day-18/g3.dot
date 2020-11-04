@@ -1,0 +1,22 @@
+digraph G3 {
+    ""
+    -> "a\na"
+    -> "A\naA"
+    -> "b\naAb"
+    -> "B\naAbB"
+    -> "c\naAbBc"
+    -> "C\naAbBcC"
+
+    "C\naAbBcC" -> "e\naAbBcCe"
+    "e\naAbBcCe" -> "E\naAbBcCeE"
+    "e\naAbBcCe" -> "d\naAbBcCde"
+    "d\naAbBcCde" -> "E\naAbBcCdeE"
+    "E\naAbBcCeE" -> "d\naAbBcCdeE"
+    "d\naAbBcCdeE" -> "D\naAbBcCdDeE"
+    "D\naAbBcCdDeE" -> "f\naAbBcCdDeEf"
+
+    "C\naAbBcC" -> "d\naAbBcCd"
+    "d\naAbBcCd" -> "e\naAbBcCde"
+    "e\naAbBcCde" -> "E\naAbBcCdeE"
+    "E\naAbBcCdeE" -> "D\naAbBcCdDeE"
+}

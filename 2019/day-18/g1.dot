@@ -1,0 +1,10 @@
+@startuml
+digraph G {
+    "b" -> "A"
+    "A" -> "b"
+    "A" -> "@"
+    "@" -> "A"
+    "@" -> "a"
+    "a" -> "@"
+}
+@enduml

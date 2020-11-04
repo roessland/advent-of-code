@@ -1,0 +1,6 @@
+digraph G2 {
+    "@"
+    -> "a\na"
+    -> "A\naA"
+    -> "b\naAb"
+}

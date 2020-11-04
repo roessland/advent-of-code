@@ -1,0 +1,16 @@
+digraph G3 {
+    ""
+    -> "a\na"
+    -> "b\nab"
+    -> "c\nabc"
+
+    "c\nabc"
+    -> "e\nabce"
+    -> "d\nabcde"
+    -> "f\nabcdef"
+
+    "c\nabc"
+    -> "d\nabcd"
+    -> "e\nabcde"
+    -> "f\nabcdef"
+}
