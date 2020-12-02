@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math"
 	"os"
 	"strings"
 )
@@ -129,23 +128,39 @@ func WorldToDot(world map[Pos]*WorldNode, filename string) {
 		log.Fatal(err)
 	}
 }
-func FindReachableKeysAndDoors(world map[Pos]*WorldNode, from *WorldNode) []*WorldEdge {
-	var visited map[*WorldNode]bool
-	distanceTo := map[*WorldNode]int{}
-	for _, node := range world {
-		distanceTo[node] = math.MaxInt32
-	}
-	var dfs func(n *WorldNode)
-	dfs = func(n *WorldNode) {
-		if visited[n] {
-			return
-		}
-		visited[n] = true
+
+func SimplifyWorld(world map[Pos]*WorldNode) {
+	edgesTo := map[Pos]int{}
+	for _, n := range world {
+		futureEdges := []*WorldEdge{}
 		for _, edge := range n.Edges {
-			dfs(edge.To)
+			if edge.To.Tile != empty {
+				futureEdges = append(futureEdges, edge)
+				continue
+			}
+			for _, neighborEdge := range edge.To.Edges {
+				if neighborEdge.To == n {
+					// Don't need to make new edge to itself
+					continue
+				}
+				futureEdges = append(futureEdges, &WorldEdge{
+					To:     neighborEdge.To,
+					Weight: edge.Weight + neighborEdge.Weight,
+				})
+			}
+		}
+		n.Edges = futureEdges
+		for _, edge := range n.Edges {
+			edgesTo[edge.To.Pos]++
+		}
+		// delete node
+	}
+	// Delete orphan nodes
+	for pos := range world {
+		if edgesTo[pos] == 0 {
+			delete(world, pos)
 		}
 	}
-	dfs(from)
 }
 
 func main() {
@@ -153,6 +168,15 @@ func main() {
 	PrintMap(input)
 	w := CreateWorld(input)
 	fmt.Println("Simpifying")
+	SimplifyWorld(w)
+	fmt.Println("Simpifying")
+
+	SimplifyWorld(w)
+	fmt.Println("Simpifying")
+
+	fmt.Println("Simpifying")
+
+
 
 	WorldToDot(w, "world.dot")
 }
