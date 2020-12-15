@@ -436,7 +436,7 @@ func main() {
 	sendOutput := func(status int) {
 		i++
 		state.Update(status)
-		if i%5 == 0 {
+		if i%5000 == 0 {
 			time.Sleep(500 * time.Millisecond)
 			state.PrintMap()
 		}
