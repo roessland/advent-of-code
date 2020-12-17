@@ -1,4 +1,4 @@
-package main1
+package main
 
 import (
 	"bufio"
@@ -151,19 +151,19 @@ func HasKeyToDoor(tile rune, keySet map[rune]struct{}) bool {
 	}
 }
 
-func GetStart(world map[Pos]*Node) *Node {
+func GetStarts(world map[Pos]*Node) []*Node {
+	var starts []*Node
 	for _, n := range world {
 		if n.Tile == TileStart {
-			return n
+			starts = append(starts, n)
 		}
 	}
-	return nil
+	return starts
 }
 
 type State struct {
-	WorldNode *Node
+	Nodes     []*Node
 	KeySet    map[rune]struct{}
-	Visited   bool
 	Distance  int
 	PrevState *State
 	index     int // for heap
@@ -171,10 +171,10 @@ type State struct {
 
 type States map[string]*State
 
-func (ss States) GetOrCreate(worldNode *Node, keySet map[rune]struct{}) *State {
-	id := Id(worldNode, keySet)
+func (ss States) GetOrCreate(nodes []*Node, keySet map[rune]struct{}) *State {
+	id := Id(nodes, keySet)
 	if ss[id] == nil {
-		ss[id] = NewStateNode(worldNode, keySet)
+		ss[id] = NewStateNode(nodes, keySet)
 	}
 	return ss[id]
 }
@@ -187,7 +187,7 @@ func (ss States) Get(id string) *State {
 	return n
 }
 
-func Id(worldNode *Node, keySet map[rune]struct{}) string {
+func Id(nodes []*Node, keySet map[rune]struct{}) string {
 	var keys []rune
 	for k, _ := range keySet {
 		keys = append(keys, k)
@@ -195,18 +195,26 @@ func Id(worldNode *Node, keySet map[rune]struct{}) string {
 	sort.Slice(keys, func(i, j int) bool {
 		return keys[i] < keys[j]
 	})
-	return fmt.Sprintf("%c-%s-%d-%d", worldNode.Tile, string(keys), worldNode.Pos.I, worldNode.Pos.J)
+	pos := ""
+	for _, n := range nodes {
+		if n == nil {
+			fmt.Println(nodes)
+			panic("cant id nodes where one is nil")
+		}
+		pos += fmt.Sprintf("-(%d,%d)", n.Pos.I, n.Pos.J)
+	}
+	return fmt.Sprintf("%s-%s", string(keys), pos)
 }
 
 func (s *State) Id() string {
-	return Id(s.WorldNode, s.KeySet)
+	return Id(s.Nodes, s.KeySet)
 }
 
-func NewStateNode(worldNode *Node, keySet map[rune]struct{}) *State {
+func NewStateNode(nodes []*Node, keySet map[rune]struct{}) *State {
 	ret := &State{
-		WorldNode: worldNode,
-		KeySet:    keySet,
-		Distance:  math.MaxInt32,
+		Nodes:    nodes,
+		KeySet:   keySet,
+		Distance: math.MaxInt32,
 	}
 	return ret
 }
@@ -304,7 +312,7 @@ func GetOrCreate(world map[Pos]*Node, pos Pos, tile rune) *Node {
 func Part1(world map[Pos]*Node) {
 	targetKeyCount := CountKeys(world)
 	states := make(States)
-	initial := states.GetOrCreate(GetStart(world), make(map[rune]struct{}))
+	initial := states.GetOrCreate(GetStarts(world), make(map[rune]struct{}))
 	initial.Distance = 0
 
 	pq := make(PriorityQueue, 1)
@@ -325,24 +333,34 @@ func Part1(world map[Pos]*Node) {
 			fmt.Printf("%d/%d ", maxKeySetSize, targetKeyCount)
 		}
 
-		// Find edges
-		currNode := currState.WorldNode
-		for _, edge := range currNode.Edges {
-			if IsDoor(edge.To.Tile) && !HasKeyToDoor(edge.To.Tile, currState.KeySet) {
-				continue
-			}
-			toKeySet := WithKey(currState.KeySet, edge.To.Tile)
-			toState := states.GetOrCreate(edge.To, toKeySet)
+		// Future state, with only one robot moved
+		currNodes := currState.Nodes
+		for r, _ := range currNodes {
+			// Find edges
+			currNode := currNodes[r]
+			for _, edge := range currNode.Edges {
+				if IsDoor(edge.To.Tile) && !HasKeyToDoor(edge.To.Tile, currState.KeySet) {
+					continue
+				}
+				toKeySet := WithKey(currState.KeySet, edge.To.Tile)
+				nodesCopy := make([]*Node, len(currNodes))
+				copy(nodesCopy, currNodes)
+				nodesCopy[r] = edge.To
+				toState := states.GetOrCreate(nodesCopy, toKeySet)
 
-			// If going via this state is faster, update and add to queue
-			if currState.Distance+edge.Weight < toState.Distance {
-				toState.Distance = currState.Distance + edge.Weight
-				toState.PrevState = currState
-				heap.Push(&pq, toState)
+				// If going via this state is faster, update and add to queue
+				if currState.Distance+edge.Weight < toState.Distance {
+					toState.Distance = currState.Distance + edge.Weight
+					toState.PrevState = currState
+					heap.Push(&pq, toState)
+				}
 			}
 		}
 	}
 
+	if finalState == nil {
+		log.Fatal("couldn't find final state")
+	}
 	fmt.Println("\nPart 1:", finalState.Distance)
 }
 
@@ -406,8 +424,8 @@ func Preprocess(oldWorld map[Pos]*Node) map[Pos]*Node {
 }
 
 func main() {
-	input := ReadInput("input.txt")
+	input := ReadInput("input-part2.txt")
 	w := CreateWorld(input)
 	w = Preprocess(w)
-	Part1(w)
+	Part1(w) // 4248 too high
 }
