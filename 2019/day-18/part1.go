@@ -2,17 +2,21 @@ package main
 
 import (
 	"bufio"
+	"container/heap"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strings"
 )
 
-const wall rune = '#'
-const empty rune = '.'
+const TileWall rune = '#'
+const TileEmpty rune = '.'
+const TileStart rune = '@'
+const Unreachable int = math.MaxInt32
 
 func ReadInput(filename string) [][]rune {
 	f, err := os.Open(filename)
@@ -54,35 +58,35 @@ type Pos struct {
 	I, J int
 }
 
-type WorldEdge struct {
-	To *WorldNode
+type Edge struct {
+	To     *Node
 	Weight int
 }
 
-type WorldNode struct {
-	Edges []*WorldEdge
+type Node struct {
+	Edges []*Edge
 	Pos   Pos
 	Tile  rune
 }
 
-func (n *WorldNode) DotNodeName() string {
+func (n *Node) DotNodeName() string {
 	return fmt.Sprintf(`%c\n(%d,%d)`, n.Tile, n.Pos.I, n.Pos.J)
 }
 
-func CreateWorld(input [][]rune) map[Pos]*WorldNode {
-	nodeAtPos := map[Pos]*WorldNode{}
+func CreateWorld(input [][]rune) map[Pos]*Node {
+	nodeAtPos := map[Pos]*Node{}
 	height := len(input)
 	width := len(input[0])
 	for i := 1; i < height-1; i++ {
 		for j := 1; j < width-1; j++ {
 			pos := Pos{I: i, J: j}
 			// make da node
-			n := WorldNode{
-				Edges: make([]*WorldEdge, 0),
-				Pos: pos,
-				Tile: input[i][j],
+			n := Node{
+				Edges: make([]*Edge, 0),
+				Pos:   pos,
+				Tile:  input[i][j],
 			}
-			if n.Tile != wall {
+			if n.Tile != TileWall {
 				nodeAtPos[pos] = &n
 			}
 		}
@@ -93,16 +97,16 @@ func CreateWorld(input [][]rune) map[Pos]*WorldNode {
 			if this == nil {
 				continue
 			}
-			east := nodeAtPos[Pos{I: i, J: j+1}]
-			west := nodeAtPos[Pos{I: i, J: j-1}]
-			south := nodeAtPos[Pos{I: i+1, J: j}]
-			north := nodeAtPos[Pos{I: i-1, J: j}]
-			for _, dir := range []*WorldNode{east, west, south, north} {
+			east := nodeAtPos[Pos{I: i, J: j + 1}]
+			west := nodeAtPos[Pos{I: i, J: j - 1}]
+			south := nodeAtPos[Pos{I: i + 1, J: j}]
+			north := nodeAtPos[Pos{I: i - 1, J: j}]
+			for _, dir := range []*Node{east, west, south, north} {
 				if dir == nil {
 					continue
 				}
-				if dir.Tile != wall {
-					this.Edges = append(this.Edges, &WorldEdge{dir, 1})
+				if dir.Tile != TileWall {
+					this.Edges = append(this.Edges, &Edge{dir, 1})
 				}
 			}
 		}
@@ -110,12 +114,12 @@ func CreateWorld(input [][]rune) map[Pos]*WorldNode {
 	return nodeAtPos
 }
 
-func WorldToDot(world map[Pos]*WorldNode, filename string) {
+func WorldToDot(world map[Pos]*Node, filename string) {
 	var lines []string
 	lines = append(lines, "digraph G {")
 	for _, node := range world {
 		lines = append(lines, fmt.Sprintf(`"%s" [`, node.DotNodeName()))
-		lines = append(lines, fmt.Sprintf(`    pos = "%d,%d!"`, node.Pos.I, node.Pos.J))
+		lines = append(lines, fmt.Sprintf(`    pos = "%d,%d!"`, node.Pos.J, -node.Pos.I))
 		lines = append(lines, "]")
 		for _, edge := range node.Edges {
 			line := fmt.Sprintf(`"%s" -> "%s"`, node.DotNodeName(), edge.To.DotNodeName())
@@ -129,30 +133,281 @@ func WorldToDot(world map[Pos]*WorldNode, filename string) {
 		log.Fatal(err)
 	}
 }
-func FindReachableKeysAndDoors(world map[Pos]*WorldNode, from *WorldNode) []*WorldEdge {
-	var visited map[*WorldNode]bool
-	distanceTo := map[*WorldNode]int{}
-	for _, node := range world {
-		distanceTo[node] = math.MaxInt32
+
+func IsDoor(tile rune) bool {
+	return 'A' <= tile && tile <= 'Z'
+}
+
+func IsKey(tile rune) bool {
+	return 'a' <= tile && tile <= 'z'
+}
+
+func HasKeyToDoor(tile rune, keySet map[rune]struct{}) bool {
+	if tile < 'A' || 'Z' < tile {
+		return false
+	} else {
+		_, hasKey := keySet[tile-'A'+'a']
+		return hasKey
 	}
-	var dfs func(n *WorldNode)
-	dfs = func(n *WorldNode) {
-		if visited[n] {
-			return
-		}
-		visited[n] = true
-		for _, edge := range n.Edges {
-			dfs(edge.To)
+}
+
+func GetStart(world map[Pos]*Node) *Node {
+	for _, n := range world {
+		if n.Tile == TileStart {
+			return n
 		}
 	}
-	dfs(from)
+	return nil
+}
+
+type State struct {
+	WorldNode *Node
+	KeySet    map[rune]struct{}
+	Visited   bool
+	Distance  int
+	PrevState *State
+	index     int // for heap
+}
+
+type States map[string]*State
+
+func (ss States) GetOrCreate(worldNode *Node, keySet map[rune]struct{}) *State {
+	id := Id(worldNode, keySet)
+	if ss[id] == nil {
+		ss[id] = NewStateNode(worldNode, keySet)
+	}
+	return ss[id]
+}
+
+func (ss States) Get(id string) *State {
+	n, ok := ss[id]
+	if !ok {
+		panic("tried to get non-existing statenode")
+	}
+	return n
+}
+
+func Id(worldNode *Node, keySet map[rune]struct{}) string {
+	var keys []rune
+	for k, _ := range keySet {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+	return fmt.Sprintf("%c-%s-%d-%d", worldNode.Tile, string(keys), worldNode.Pos.I, worldNode.Pos.J)
+}
+
+func (s *State) Id() string {
+	return Id(s.WorldNode, s.KeySet)
+}
+
+func NewStateNode(worldNode *Node, keySet map[rune]struct{}) *State {
+	ret := &State{
+		WorldNode: worldNode,
+		KeySet:    keySet,
+		Distance:  math.MaxInt32,
+	}
+	return ret
+}
+
+func StatePriorityQueuePop(pq map[*State]struct{}) *State {
+	var minState *State
+	minDist := Unreachable
+	for state, _ := range pq {
+		if state.Distance < minDist {
+			minState = state
+			minDist = state.Distance
+		}
+	}
+	delete(pq, minState)
+	return minState
+}
+
+func NodePriorityQueuePop(distanceTo map[*Node]int, pq map[*Node]struct{}) *Node {
+	var minNode *Node
+	minDist := Unreachable
+	for node, _ := range pq {
+		if distanceTo[node] < minDist {
+			minNode = node
+			minDist = distanceTo[node]
+		}
+	}
+	delete(pq, minNode)
+	return minNode
+}
+
+// WithKey creates a copy of a keyset with an additional key added, but only if it's a key.
+func WithKey(keySet map[rune]struct{}, maybeKey rune) map[rune]struct{} {
+	if IsKey(maybeKey) {
+		newKeySet := map[rune]struct{}{}
+		newKeySet[maybeKey] = struct{}{}
+		for key, _ := range keySet {
+			newKeySet[key] = struct{}{}
+		}
+		return newKeySet
+	}
+	return keySet
+}
+
+// A PriorityQueue implements heap.Interface and holds Items.
+type PriorityQueue []*State
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+func (pq PriorityQueue) Less(i, j int) bool {
+	// We want Pop to give us the highest, not lowest, priority so we use greater than here.
+	return pq[i].Distance < pq[j].Distance
+}
+
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
+
+func (pq *PriorityQueue) Push(x interface{}) {
+	n := len(*pq)
+	item := x.(*State)
+	item.index = n
+	*pq = append(*pq, item)
+}
+
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	old[n-1] = nil  // avoid memory leak
+	item.index = -1 // for safety
+	*pq = old[0 : n-1]
+	return item
+}
+
+// update modifies the priority and value of an Item in the queue.
+func (pq *PriorityQueue) update(item *State, distance int) {
+	item.Distance = distance
+	heap.Fix(pq, item.index)
+}
+
+// GetOrCreate gets node at some position, creating it if necessary.
+func GetOrCreate(world map[Pos]*Node, pos Pos, tile rune) *Node {
+	if world[pos] == nil {
+		world[pos] = &Node{
+			Edges: nil,
+			Pos:   pos,
+			Tile:  tile,
+		}
+	}
+	return world[pos]
+}
+
+func Part1(world map[Pos]*Node) {
+	targetKeyCount := CountKeys(world)
+	states := make(States)
+	initial := states.GetOrCreate(GetStart(world), make(map[rune]struct{}))
+	initial.Distance = 0
+
+	pq := make(PriorityQueue, 1)
+	pq[0] = initial
+
+	maxKeySetSize := 0
+	var finalState *State
+	for len(pq) > 0 {
+		currState := heap.Pop(&pq).(*State)
+		if len(currState.KeySet) == targetKeyCount {
+			finalState = currState
+			break
+		}
+
+		// Just some output to print progress
+		if len(currState.KeySet) > maxKeySetSize {
+			maxKeySetSize = len(currState.KeySet)
+			fmt.Printf("%d/%d ", maxKeySetSize, targetKeyCount)
+		}
+
+		// Find edges
+		currNode := currState.WorldNode
+		for _, edge := range currNode.Edges {
+			if IsDoor(edge.To.Tile) && !HasKeyToDoor(edge.To.Tile, currState.KeySet) {
+				continue
+			}
+			toKeySet := WithKey(currState.KeySet, edge.To.Tile)
+			toState := states.GetOrCreate(edge.To, toKeySet)
+
+			// If going via this state is faster, update and add to queue
+			if currState.Distance+edge.Weight < toState.Distance {
+				toState.Distance = currState.Distance + edge.Weight
+				toState.PrevState = currState
+				heap.Push(&pq, toState)
+			}
+		}
+	}
+
+	fmt.Println("\nPart 1:", finalState.Distance)
+}
+
+// CountKeys finds our goal.
+func CountKeys(w map[Pos]*Node) int {
+	num := 0
+	for _, n := range w {
+		if IsKey(n.Tile) {
+			num++
+		}
+	}
+	return num
+}
+
+// Preprocess creates a new world with all the dots omitted.
+// This gives a ~10-50x speedup.
+func Preprocess(oldWorld map[Pos]*Node) map[Pos]*Node {
+	newWorld := map[Pos]*Node{}
+	// Foreach non-dot tile
+	for _, oldNode := range oldWorld {
+		if oldNode.Tile == TileEmpty {
+			continue
+		}
+		distanceTo := map[*Node]int{oldNode: 0}
+		// Not implemented using heap. O(n) pop.
+		pq := map[*Node]struct{}{oldNode: {}}
+		// Find everything reachable without passing through objects
+		for len(pq) > 0 {
+			node := NodePriorityQueuePop(distanceTo, pq)
+			for _, e := range node.Edges {
+				_, hasDistanceTo := distanceTo[e.To]
+				if !hasDistanceTo {
+					distanceTo[e.To] = Unreachable
+				}
+				if distanceTo[node] + e.Weight < distanceTo[e.To] {
+					distanceTo[e.To] = distanceTo[node] + e.Weight
+					if e.To.Tile == TileEmpty {
+						pq[e.To] = struct{}{}
+					}
+				}
+			}
+		}
+
+		// Foreach reachable non-empty edge, add edge
+		newFrom := GetOrCreate(newWorld, oldNode.Pos, oldNode.Tile)
+		for oldTo, dist := range distanceTo {
+			if oldTo == oldNode {
+				continue
+			}
+			if oldTo.Tile == TileEmpty {
+				continue
+			}
+			newTo := GetOrCreate(newWorld, oldTo.Pos, oldTo.Tile)
+			newFrom.Edges = append(newFrom.Edges, &Edge{
+				To:     newTo,
+				Weight: dist,
+			})
+		}
+	}
+	return newWorld
 }
 
 func main() {
 	input := ReadInput("input.txt")
-	PrintMap(input)
 	w := CreateWorld(input)
-	fmt.Println("Simpifying")
-
-	WorldToDot(w, "world.dot")
+	w = Preprocess(w)
+	Part1(w)
 }
