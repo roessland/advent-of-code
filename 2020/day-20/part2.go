@@ -1,4 +1,4 @@
-package mainjik
+package main
 
 import (
 	"bufio"
@@ -9,13 +9,24 @@ import (
 	"strings"
 )
 
-const N = 10
-
 var K int = 0
 
-type Edge [N]rune
+type Edge []rune
+
+func (e Edge) Equal(o Edge) bool {
+	if len(e) != len(o) {
+		return false
+	}
+	for i := 0; i < len(e); i++ {
+		if e[i] != o[i] {
+			return false
+		}
+	}
+	return true
+}
 
 type BaseTile struct {
+	N         int
 	Id        int
 	Data      [][]rune
 	Rotations []*Tile
@@ -24,6 +35,7 @@ type BaseTile struct {
 func NewBaseTile(id int, data [][]rune) *BaseTile {
 	b := BaseTile{}
 	b.Id = id
+	b.N = len(data)
 	b.Data = data
 	b.ComputeRotations()
 	return &b
@@ -31,12 +43,17 @@ func NewBaseTile(id int, data [][]rune) *BaseTile {
 
 func (b *BaseTile) GetRotation(corner, eastAxis, southAxis Pos) *Tile {
 	t := Tile{Base: b, Corner: corner, EastAxis: eastAxis, SouthAxis: southAxis}
+
 	// Cache the edges
-	for i := 0; i < N; i++ {
-		t.N[i] = t.At(i, 0)
-		t.E[i] = t.At(N-1, i)
-		t.S[i] = t.At(i, N-1)
-		t.W[i] = t.At(0, i)
+	t.EdgeN = make(Edge, b.N)
+	t.EdgeE = make(Edge, b.N)
+	t.EdgeS = make(Edge, b.N)
+	t.EdgeW = make(Edge, b.N)
+	for i := 0; i < b.N; i++ {
+		t.EdgeN[i] = t.At(i, 0)
+		t.EdgeE[i] = t.At(b.N-1, i)
+		t.EdgeS[i] = t.At(i, b.N-1)
+		t.EdgeW[i] = t.At(0, i)
 	}
 	return &t
 }
@@ -55,15 +72,24 @@ func (b *BaseTile) ComputeRotations() {
 }
 
 type Tile struct {
-	Base                *BaseTile
-	Corner              Pos
-	EastAxis, SouthAxis Pos
-	N, E, S, W          Edge
+	Base                       *BaseTile
+	Corner                     Pos
+	EastAxis, SouthAxis        Pos
+	EdgeN, EdgeE, EdgeS, EdgeW Edge
+}
+
+func (t Tile) N() int {
+	return t.Base.N
 }
 
 func (t Tile) At(east, south int) rune {
-	dataPos := t.Corner.Mul(N - 1).Add(t.EastAxis.Mul(east)).Add(t.SouthAxis.Mul(south))
+	dataPos := t.Corner.Mul(t.N() - 1).Add(t.EastAxis.Mul(east)).Add(t.SouthAxis.Mul(south))
 	return t.Base.Data[dataPos.I][dataPos.J]
+}
+
+func (t Tile) Set(east, south int, r rune) {
+	dataPos := t.Corner.Mul(t.N() - 1).Add(t.EastAxis.Mul(east)).Add(t.SouthAxis.Mul(south))
+	t.Base.Data[dataPos.I][dataPos.J] = r
 }
 
 type Pos struct {
@@ -78,9 +104,11 @@ func (p Pos) Add(v Pos) Pos {
 	return Pos{p.I + v.I, p.J + v.J}
 }
 
-func (t Tile) Print() {
-	for s := 0; s < N; s++ {
-		for e := 0; e < N; e++ {
+func (t Tile) Print(removeBorder int) {
+	fmt.Println("Base id: ", t.Base.Id)
+
+	for s := removeBorder; s < t.N()-removeBorder; s++ {
+		for e := removeBorder; e < t.N()-removeBorder; e++ {
 			fmt.Printf("%c", t.At(e, s))
 		}
 		fmt.Println()
@@ -106,16 +134,16 @@ func (b Board) With(i, j int, tile *Tile) Board {
 }
 
 func (b Board) CanPlace(i, j int, tile *Tile) bool {
-	if i > 0 && b[i-1][j] != nil && tile.N != b[i-1][j].S {
+	if i > 0 && b[i-1][j] != nil && !tile.EdgeN.Equal(b[i-1][j].EdgeS) {
 		return false // North edge
 	}
-	if i < K-1 && b[i+1][j] != nil && tile.S != b[i+1][j].N {
+	if i < K-1 && b[i+1][j] != nil && !tile.EdgeS.Equal(b[i+1][j].EdgeN) {
 		return false // South edge
 	}
-	if j > 0 && b[i][j-1] != nil && tile.W != b[i][j-1].E {
+	if j > 0 && b[i][j-1] != nil && !tile.EdgeW.Equal(b[i][j-1].EdgeE) {
 		return false // West edge
 	}
-	if j < K-1 && b[i][j+1] != nil && tile.E != b[i][j+1].W {
+	if j < K-1 && b[i][j+1] != nil && !tile.EdgeE.Equal(b[i][j+1].EdgeW) {
 		return false // East edge
 	}
 	return true
@@ -179,9 +207,9 @@ func Solve(puzzle Puzzle) Puzzle {
 
 	// Otherwise go to first empty tile
 	i, j := 0, 0
-	Free:
-	for i=0; i<K; i++ {
-		for j=0; j <K; j++ {
+Free:
+	for i = 0; i < K; i++ {
+		for j = 0; j < K; j++ {
 			if puzzle.Board[i][j] == nil {
 				break Free
 			}
@@ -208,6 +236,9 @@ func Solve(puzzle Puzzle) Puzzle {
 func Part1(baseTiles []*BaseTile) Puzzle {
 	puzzle := NewPuzzle(baseTiles)
 	solvedPuzzle := Solve(puzzle)
+	if !solvedPuzzle.Solved {
+		log.Fatal("whoops")
+	}
 
 	prod := 1
 	prod *= solvedPuzzle.Board[0][0].Base.Id
@@ -215,7 +246,7 @@ func Part1(baseTiles []*BaseTile) Puzzle {
 	prod *= solvedPuzzle.Board[0][K-1].Base.Id
 	prod *= solvedPuzzle.Board[K-1][K-1].Base.Id
 
-	fmt.Println(prod)
+	fmt.Println("Part 1:", prod)
 	return solvedPuzzle
 }
 
@@ -236,10 +267,14 @@ func ReadInput(filename string) []*BaseTile {
 			if err != nil {
 				log.Fatal(err)
 			}
-			data := make([][]rune, N)
-			for i := 0; i < N; i++ {
+			data := make([][]rune, 0)
+			for {
 				scanner.Scan()
-				data[i] = []rune(scanner.Text())
+				line := scanner.Text()
+				if line == "" {
+					break
+				}
+				data = append(data, []rune(line))
 			}
 			baseTiles = append(baseTiles, NewBaseTile(id, data))
 		}
@@ -251,7 +286,89 @@ func ReadInput(filename string) []*BaseTile {
 	return baseTiles
 }
 
+func Combine(puzzle Puzzle) *BaseTile {
+	N := puzzle.Board[0][0].N()
+	M := N-2
+	L := len(puzzle.Board) * M
+	// Allocate empty data
+	data := make([][]rune, L)
+	for i := range data {
+		data[i] = make([]rune, L)
+		for j := range data[i] {
+			data[i][j] = ' '
+		}
+	}
+	// Copy each tile, removing border.
+	for i0 := 0; i0 < len(puzzle.Board); i0++ {
+		for s := 0; s < M; s++ {
+			for j0 := 0; j0 < len(puzzle.Board); j0++ {
+				for e := 0; e < M; e++ {
+					data[i0*(M)+s][j0*(M)+e] = puzzle.Board[i0][j0].At(e+1, s+1)
+				}
+			}
+		}
+	}
+
+	t := NewBaseTile(1337, data)
+	return t
+}
+
+var monster = [][]rune{
+	[]rune("                  # "),
+	[]rune("#    ##    ##    ###"),
+	[]rune(" #  #  #  #  #  #   "),
+}
+
+func (t *Tile) MarkMonsters() {
+	mS := len(monster)
+	mE := len(monster[0])
+	for s0 := 0; s0 < t.N()-mS; s0++ {
+		NoMonsterFoundTryNextLocation:
+		for e0 := 0; e0 < t.N()-mE; e0++ {
+			// See if a monster is found at this location. Allows for overlapping sea monsters.
+			for s := 0; s < mS; s++ {
+				for e := 0; e < mE; e++ {
+					val := t.At(e0+e, s0+s)
+					if monster[s][e] == '#' && val != '#' && val != 'O' {
+						continue NoMonsterFoundTryNextLocation
+					}
+				}
+			}
+			// Complete sea monster found! Mark those tiles.
+			for s := 0; s < mS; s++ {
+				for e := 0; e < mE; e++ {
+					if monster[s][e] == '#' {
+						t.Set(e0+e, s0+s, 'O')
+					}
+				}
+			}
+		}
+	}
+}
+
+
+func Part2(puzzle Puzzle) {
+	tile := Combine(puzzle)
+
+	for _, t := range tile.Rotations {
+		t.MarkMonsters()
+	}
+	//tile.Rotations[0].Print(0)
+
+	roughness := 0
+	for i := range tile.Data {
+		for j := range tile.Data[i] {
+			if tile.Data[i][j] == '#' {
+				roughness++
+			}
+		}
+	}
+	fmt.Println("Part 2:", roughness)
+
+}
+
 func main() {
 	baseTiles := ReadInput("input.txt")
-	Part1(baseTiles)
+	solvedPuzzle := Part1(baseTiles)
+	Part2(solvedPuzzle)
 }
