@@ -1,0 +1,111 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+)
+
+type Card int
+
+// Bottom has highest index, top has index 0
+type Deck struct {
+	Cards []Card
+}
+
+func (deck *Deck) InsertBottom(card Card) {
+	deck.Cards = append(deck.Cards, card)
+}
+
+func (deck *Deck) InsertTop(card Card) {
+	deck.Cards = append([]Card{card}, deck.Cards...)
+}
+
+func (deck *Deck) PopTop() Card {
+	if len(deck.Cards) == 0 {
+		panic("attempted pop from empty deck")
+	}
+	card := deck.Cards[0]
+	deck.Cards = deck.Cards[1:]
+	return card
+}
+
+type Player struct {
+	Deck Deck
+}
+
+func (p *Player) Score() int {
+	score := 0
+	for i, j := 1, len(p.Deck.Cards)-1; j >= 0; i, j = i+1, j-1 {
+		score += int(p.Deck.Cards[j])*i
+	}
+	return score
+}
+
+type Game struct {
+	Player1 *Player
+	Player2 *Player
+	Winner *Player
+}
+
+func ReadInput(filename string) *Game {
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	scanner := bufio.NewScanner(f)
+	game := Game{
+		Player1: &Player{},
+		Player2: &Player{},
+	}
+	player := game.Player1
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "Player") {
+			continue
+		}
+		if line == "" {
+			player = game.Player2
+			continue
+		}
+		n, err := strconv.Atoi(line)
+		if err != nil {
+			log.Fatal(err)
+		}
+		player.Deck.Cards = append(player.Deck.Cards, Card(n))
+	}
+	return &game
+}
+
+func (game *Game) Play() {
+	i := 1
+	for len(game.Player1.Deck.Cards) > 0 && len(game.Player2.Deck.Cards) > 0 {
+		//fmt.Println("Round", i)
+		card1 := game.Player1.Deck.PopTop()
+		card2 := game.Player2.Deck.PopTop()
+		if card1 > card2 {
+			game.Player1.Deck.InsertBottom(card1)
+			game.Player1.Deck.InsertBottom(card2)
+		} else if card2 > card1 {
+			game.Player2.Deck.InsertBottom(card2)
+			game.Player2.Deck.InsertBottom(card1)
+		} else {
+			panic("didnt plan for this")
+		}
+		i++
+	}
+	if len(game.Player1.Deck.Cards) > 0 {
+		game.Winner = game.Player1
+	} else {
+		game.Winner = game.Player2
+	}
+}
+
+func main () {
+	game := ReadInput("input.txt")
+	game.Play()
+	fmt.Println("Part 1:", game.Winner.Score())
+}
