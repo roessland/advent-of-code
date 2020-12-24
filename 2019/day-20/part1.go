@@ -1,0 +1,183 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+	"sort"
+	"strings"
+)
+
+const TileWall = '#'
+const TileEmpty = '.'
+const TileNothing = ' '
+
+
+
+func isLetter(c byte) bool {
+	if c < 'A' || 'Z' < c {
+		return false
+	}
+	return true
+}
+
+func findDot(tiles []string, i, j int) *Pos {
+	var i2, j2 int
+	if i > 0 && tiles[i-1][j] == TileEmpty {
+		i2, j2 = i-1, j
+	} else if i < len(tiles) -1 && tiles[i+1][j] == TileEmpty {
+		i2, j2 = i+1, j
+	} else if j > 0 && tiles[i][j-1] == TileEmpty {
+		i2, j2 = i, j-1
+	} else if j < len(tiles[0]) - 1 && tiles[i][j+1] == TileEmpty {
+		i2, j2 = i, j+1
+	}
+	if i2 != 0 && j2 != 0 {
+		return &Pos{i2, j2}
+	}
+	return nil
+}
+
+func findPortal(tiles []string, i1, j1 int) (name string, pos Pos) {
+	c1 := tiles[i1][j1]
+	cs := []byte{c1}
+	cpos := []Pos{{i1, j1}}
+	if !isLetter(c1) {
+		panic("not a letter")
+	}
+
+	// See if dot is near this letter
+	dotPos := findDot(tiles, i1, j1)
+
+	var i2, j2 int
+	if i1 > 0 && isLetter(tiles[i1-1][j1]) {
+		i2, j2 = i1-1, j1
+	} else if i1 < len(tiles) -1 && isLetter(tiles[i1+1][j1]) {
+		i2, j2 = i1+1, j1
+	} else if j1 > 0 && isLetter(tiles[i1][j1-1]) {
+		i2, j2 = i1, j1-1
+	} else if j1 < len(tiles[0]) - 1 && isLetter(tiles[i1][j1+1]) {
+		i2, j2 = i1, j1+1
+	}
+	c2 := tiles[i2][j2]
+	cs = append(cs, c2)
+	cpos = append(cpos, Pos{i2, j2})
+
+	// See if dot is near this letter
+	if dotPos == nil {
+		dotPos = findDot(tiles, i2, j2)
+	}
+	if dotPos == nil {
+		panic("found no dot for this portal")
+	}
+
+	sort.Slice(cs, func(i,j int)bool {
+		return (cpos[i].I + cpos[i].J) < (cpos[j].I + cpos[j].J)
+	})
+	name = string(cs)
+	fmt.Printf("finding portal from %c found %s\n", tiles[i1][j1], name)
+
+	return name, *dotPos
+}
+
+func main() {
+	f, err := os.Open("input.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Read entire maze into a 2D array
+	var tiles []string
+	scanner := bufio.NewScanner(f)
+	maxLen := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) > maxLen {
+			maxLen = len(line)
+		}
+		tiles = append(tiles, line)
+	}
+	for i := range tiles {
+		if len(tiles[i]) < maxLen {
+			tiles[i] = tiles[i] + strings.Repeat(" ", maxLen+-len(tiles[i]))
+		}
+	}
+
+	// Make nodes
+	nodes := make(map[Pos]Node)
+	var g = NewGraph()
+	portals := make(map[string]map[Pos]struct{})
+	for i := range tiles {
+		for j := 0; j < len(tiles[i]); j++ {
+			c := tiles[i][j]
+			if c == TileNothing || c == TileWall {
+				// Nothing
+			} else if c == TileEmpty {
+				pos := Pos{i, j}
+				nodeId := fmt.Sprintf("%d-%d", i, j)
+				node := g.NewNode(nodeId)
+				nodes[pos] = node
+				g.AddNode(node)
+			} else {
+				// Find portal name and location
+				name, portalPos := findPortal(tiles, i, j)
+				if portals[name] == nil {
+					portals[name] = make(map[Pos]struct{}, 0)
+				}
+				portals[name][portalPos] = struct{}{}
+			}
+		}
+	}
+
+	// Connect empty tiles
+	for pos, node := range nodes {
+		up := nodes[pos.Up()]
+		down := nodes[pos.Down()]
+		left := nodes[pos.Left()]
+		right := nodes[pos.Right()]
+
+		if up != nil {
+			edge := g.NewEdge(node.ID(), up.ID(), 1)
+			g.AddEdge(edge)
+		}
+		if down != nil {
+			edge := g.NewEdge(node.ID(), down.ID(), 1)
+			g.AddEdge(edge)
+		}
+		if left != nil {
+			edge := g.NewEdge(node.ID(), left.ID(), 1)
+			g.AddEdge(edge)
+		}
+		if right != nil {
+			edge := g.NewEdge(node.ID(), right.ID(), 1)
+			g.AddEdge(edge)
+		}
+	}
+
+	// Connect portals
+	var startNode, endNode Node
+	for name, sides := range portals {
+		for sideA := range sides {
+			u := nodes[sideA]
+			for sideB := range sides {
+				v := nodes[sideB]
+				if u == v {
+					if name == "AA" {
+						startNode = v
+					}
+					if name == "ZZ" {
+						endNode = v
+					}
+					continue
+				}
+				g.AddEdge(g.NewEdge(u.ID(), v.ID(), 1))
+			}
+		}
+	}
+
+	fmt.Println(startNode, endNode)
+
+	shortestPaths := FloydWarshall(g)
+	fmt.Println(shortestPaths.Weight(startNode.ID(), endNode.ID()))
+}
