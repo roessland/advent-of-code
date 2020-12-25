@@ -1,4 +1,4 @@
-package main// SET INTERFACE
+package main
 
 type Set interface {
 	Add(string)

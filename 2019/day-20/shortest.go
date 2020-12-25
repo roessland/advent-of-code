@@ -1,13 +1,13 @@
 package main
 
-type AllShortest struct {
+type Shortest struct {
 	nodes []Node
 	dist map[string]map[string]int
 	absent int
 }
 
-func newAllShortest(nodes []Node) AllShortest {
-	as := AllShortest{
+func newShortest(nodes []Node) Shortest {
+	as := Shortest{
 		nodes: nodes,
 		dist: make(map[string]map[string]int),
 	}
@@ -17,14 +17,14 @@ func newAllShortest(nodes []Node) AllShortest {
 	return as
 }
 
-func (as AllShortest) at(uid, vid string) int {
+func (as Shortest) at(uid, vid string) int {
 	return as.dist[uid][vid]
 }
 
-func (as AllShortest) set(uid, vid string, weight int) {
+func (as Shortest) set(uid, vid string, weight int) {
 	as.dist[uid][vid] = weight
 }
 
-func (as AllShortest) Weight(uid, vid string) int {
+func (as Shortest) Weight(uid, vid string) int {
 	return as.dist[uid][vid]
 }

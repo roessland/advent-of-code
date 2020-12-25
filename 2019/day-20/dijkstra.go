@@ -1,10 +1,26 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
-func FloydWarshall(g Graph) (paths Shortest) {
-	paths = newShortest(g.Nodes())
-	nodes := paths.nodes
+const infinity = math.MaxInt32
+
+func Dijkstra(g Graph, from []Node) (paths Shortest) {
+	nodes := g.Nodes()
+	paths = newShortest(nodes)
+
+	for _, n0 := range from {
+		var Q := NewSet()
+		for _, u := range nodes {
+			paths.set(n0.ID(), u.ID(), infinity)
+		}
+		paths.set(n0.ID(), n0.ID(), 0)
+	}
+
+
+
 	for _, u := range g.Nodes() {
 		for _, v := range g.Nodes() {
 			paths.set(u.ID(), v.ID(), g.Weight(u.ID(), v.ID()))
