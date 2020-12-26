@@ -3,11 +3,11 @@ package main
 import "fmt"
 
 func FloydWarshall(g Graph) (paths Shortest) {
-	paths = newShortest(g.Nodes())
-	nodes := paths.nodes
+	paths = NewShortest(infinity)
+	nodes := g.Nodes()
 	for _, u := range g.Nodes() {
 		for _, v := range g.Nodes() {
-			paths.set(u.ID(), v.ID(), g.Weight(u.ID(), v.ID()))
+			paths.SetDist(u.ID(), v.ID(), g.Weight(u.ID(), v.ID()))
 		}
 	}
 
@@ -18,9 +18,9 @@ func FloydWarshall(g Graph) (paths Shortest) {
 			uid := u.ID()
 			for _, v := range nodes {
 				vid := v.ID()
-				alt := paths.at(uid, kid) + paths.at(kid, vid)
-				if paths.at(uid, vid) > alt {
-					paths.set(uid, vid, alt)
+				alt := paths.GetDist(uid, kid) + paths.GetDist(kid, vid)
+				if paths.GetDist(uid, vid) > alt {
+					paths.SetDist(uid, vid, alt)
 				}
 			}
 		}

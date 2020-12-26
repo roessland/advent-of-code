@@ -1,45 +1,54 @@
 package main
 
 import (
-	"fmt"
+	"container/heap"
 	"math"
 )
 
 const infinity = math.MaxInt32
 
-func Dijkstra(g Graph, from []Node) (paths Shortest) {
-	nodes := g.Nodes()
-	paths = newShortest(nodes)
+func Dijkstra(g Graph, sources []Node, isTarget func(Node) bool) (paths Shortest) {
+	paths = NewShortest(infinity)
 
-	for _, n0 := range from {
-		var Q := NewSet()
-		for _, u := range nodes {
-			paths.set(n0.ID(), u.ID(), infinity)
-		}
-		paths.set(n0.ID(), n0.ID(), 0)
-	}
+	for _, source := range sources {
+		sid := source.ID()
+		queue := NewPriorityQueue()
 
+		// Seed priority queue with the source node
+		paths.SetDist(sid, sid, 0)
+		heap.Push(queue, PriorityHeapEntry{
+			Priority: 0,
+			Value:    sid,
+		})
 
+		for queue.Len() > 0 {
+			// Pop node closest to source
+			uID := heap.Pop(queue).(PriorityHeapEntry).Value
+			u := g.Node(uID)
 
-	for _, u := range g.Nodes() {
-		for _, v := range g.Nodes() {
-			paths.set(u.ID(), v.ID(), g.Weight(u.ID(), v.ID()))
-		}
-	}
+			// Early stopping if applicable
+			if isTarget != nil && isTarget(u) {
+				break
+			}
 
-	for _, k := range nodes {
-		fmt.Println(k, len(nodes))
-		kid := k.ID()
-		for _, u := range nodes {
-			uid := u.ID()
-			for _, v := range nodes {
-				vid := v.ID()
-				alt := paths.at(uid, kid) + paths.at(kid, vid)
-				if paths.at(uid, vid) > alt {
-					paths.set(uid, vid, alt)
+			// Update neighbor nodes with closest distance
+			suDist := paths.GetDist(sid, uID)
+			for _, v := range g.From(uID) {
+				vID := v.ID()
+				svDist := paths.GetDist(sid, vID)
+				uvDist := g.Weight(uID, vID)
+				// Check if there is a shorter path to v
+				if suDist+uvDist < svDist {
+					// If updated, add to heap
+					paths.SetDist(sid, vID, suDist+uvDist)
+					heap.Push(queue, PriorityHeapEntry{
+						Priority: suDist + uvDist,
+						Value:    vID,
+					})
 				}
 			}
 		}
 	}
+
 	return paths
 }

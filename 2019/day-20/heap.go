@@ -7,21 +7,33 @@ type PriorityHeapEntry struct {
 	Value string
 }
 
-type PriorityHeap []PriorityHeapEntry
+type PriorityQueue []PriorityHeapEntry
 
-func (h *PriorityHeap) Len() int {
+var _ heap.Interface = &PriorityQueue{}
+
+func NewPriorityQueue() *PriorityQueue {
+	return &PriorityQueue{}
+}
+
+func (h *PriorityQueue) Len() int {
 	return len(*h)
 }
 
-func (h *PriorityHeap) Less(i, j int)bool {
+func (h *PriorityQueue) Less(i, j int)bool {
 	return (*h)[i].Priority < (*h)[j].Priority
 }
 
-func (h *PriorityHeap) Swap(i, j int) {
+func (h *PriorityQueue) Swap(i, j int) {
 	(*h)[i], (*h)[j] = (*h)[j], (*h)[i]
 }
 
-func (h *PriorityHeap) Push(x interface{}) {
+func (h *PriorityQueue) Push(x interface{}) {
 	entry := x.(PriorityHeapEntry)
 	*h = append(*h, entry)
+}
+
+func (h *PriorityQueue) Pop() interface{} {
+	entry := (*h)[len(*h)-1]
+	*h = (*h)[:len(*h)-1]
+	return entry
 }

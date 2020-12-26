@@ -178,6 +178,6 @@ func main() {
 
 	fmt.Println(startNode, endNode)
 
-	shortestPaths := FloydWarshall(g)
+	shortestPaths := Dijkstra(g, []Node{startNode})
 	fmt.Println(shortestPaths.Weight(startNode.ID(), endNode.ID()))
 }
