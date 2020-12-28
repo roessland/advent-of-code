@@ -1,0 +1,58 @@
+north
+west
+south
+take planetoid
+east
+take mutex
+south
+take whirled peas
+south
+east
+west
+north
+north
+west
+west
+take antenna
+east
+north
+east
+south
+south
+take fuel cell
+north
+west
+take mouse
+north
+east
+take klein bottle
+west
+south
+east
+west
+west
+south
+take dark matter
+north
+east
+east
+north
+west
+south
+east
+south
+south
+east
+drop dark matter
+drop klein bottle
+drop mouse
+drop fuel cell
+drop antenna
+drop whirled peas
+drop mutex
+drop planetoid
+take fuel cell
+take antenna
+take mutex
+take planetoid
+north
