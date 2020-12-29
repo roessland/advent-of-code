@@ -222,6 +222,36 @@ var Directions []Direction = []Direction{
 	North, South, West, East,
 }
 
+func Right(dir Direction) Direction {
+	switch dir {
+	case North:
+		return East
+	case East:
+		return South
+	case South:
+		return West
+	case West:
+		return North
+	default:
+		panic("wat")
+	}
+}
+
+func Left(dir Direction) Direction {
+	switch dir {
+	case North:
+		return West
+	case West:
+		return South
+	case South:
+		return East
+	case East:
+		return North
+	default:
+		panic("woot")
+	}
+}
+
 func DirectionFromDiDj(di, dj int) Direction {
 	if di == North.Di && dj == North.Dj {
 		return North
@@ -248,6 +278,22 @@ type State struct {
 	Map         [][]Tile
 }
 
+func (s *State) At(i, j int) Tile {
+	if i < 0 {
+		return '.'
+	}
+	if i >= len(s.Map) {
+		return '.'
+	}
+	if j < 0 {
+		return '.'
+	}
+	if j >= len(s.Map[i]) {
+		return '.'
+	}
+	return s.Map[i][j]
+}
+
 func NewState() *State {
 	s := State{}
 	s.PrintingMap = true
@@ -257,6 +303,18 @@ func NewState() *State {
 	s.DroidJ = -1
 	s.Map = make([][]Tile, 1)
 	return &s
+}
+
+// Copy copies everything except the map
+func (s *State) Copy() *State {
+	c := State{}
+	c.PrintingMap = s.PrintingMap
+	c.DroidStartI = s.DroidStartI
+	c.DroidStartJ = s.DroidStartJ
+	c.DroidI = s.DroidI
+	c.DroidJ = s.DroidJ
+	c.Map = s.Map
+	return &c
 }
 
 
@@ -325,8 +383,6 @@ func Part1() *State {
 
 	vm.Run(getInput, sendOutput)
 
-	s.PrintMap()
-
 	sum := 0
 	for i := range s.Map {
 		for j, tile := range s.Map[i] {
@@ -348,55 +404,125 @@ func Part1() *State {
 			sum += i * j
 		}
 	}
+
+	fmt.Println("Part 1:", sum)
+	vm.Run(getInput, sendOutput)
+
+	return s
+}
+
+type Move struct {
+	R byte
+	N int
+}
+
+func (m Move) String() string {
+	return fmt.Sprintf("{%c %d}", m.R, m.N)
+}
+
+func GetPath(s *State) []Move {
+	var move Move
+	left := Left(s.DroidDir)
+	right := Right(s.DroidDir)
+
+	if s.At(s.DroidI + left.Di, s.DroidJ + left.Dj) == TileScaffold {
+		s.DroidDir = Left(s.DroidDir)
+		move.R = 'L'
+	} else if s.At(s.DroidI + right.Di, s.DroidJ + right.Dj) == TileScaffold {
+		s.DroidDir = Right(s.DroidDir)
+		move.R = 'R'
+	}
+
+	n := 0
+	for s.At(s.DroidI + s.DroidDir.Di, s.DroidJ + s.DroidDir.Dj) == TileScaffold {
+		s.DroidI += s.DroidDir.Di
+		s.DroidJ += s.DroidDir.Dj
+		n++
+	}
+	move.N = n
+
+	if n == 0 {
+		return nil
+	}
+
+	return append([]Move{move}, GetPath(s)...)
+}
+
+func Eq(a, b []Move) bool {
+	if len(b) == 0 {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+var A = []Move{{'R', 6}, {'L', 8}, {'R', 8}}
+var B = []Move{{'R', 4}, {'R', 6}, {'R', 6}, {'R', 4}, {'R', 4}}
+// {R 4} {R 6} {R 6} {R 4} {R 4} {L 8} {R 6} {L 10} {L 10}
+var C = []Move{{'L', 8}, {'R', 6}, {'L', 10}, {'L', 10}}
+
+func MovesToString(moves []Move) string {
+	ss := []string{}
+	for _, m := range moves {
+		ss = append(ss, fmt.Sprintf("%c,%d", m.R, m.N))
+	}
+	return strings.Join(ss, ",")
+}
+
+func Compress3(path []Move) []string {
+	if Eq(A, path) {
+		return append([]string{"A"}, Compress3(path[len(A):])...)
+	}
+	if Eq(B, path) {
+		return append([]string{"B"}, Compress3(path[len(B):])...)
+	}
+	if Eq(C, path) {
+		return append([]string{"C"}, Compress3(path[len(C):])...)
+	}
+
+	failed := []string{}
+	for _, m := range path {
+		failed = append(failed, m.String())
+	}
+	return failed
+}
+
+func Part2(s *State) {
+
+	path := GetPath(s)
+
+	vm := NewVm(LoadFile("input.txt"))
+	vm.Mem[0] = 2
+
+	program := fmt.Sprintf(`%s
+%s
+%s
+%s
+n
+`, strings.Join(Compress3(path), ","), MovesToString(A), MovesToString(B), MovesToString(C))
+	i := 0
+	getInput := func() int {
+		ret := int(program[i])
+		i++
+		return ret
+	}
+
+	finalOutput := 0
+	sendOutput := func(c int) {
+		finalOutput = c
+	}
+
+	vm.Run(getInput, sendOutput)
+	fmt.Println("Part 2:", finalOutput)
 }
 
 
 func main() {
 
-	s := Part1
-
-	vm := NewVm(LoadFile("input.txt"))
-
-	getInput := func() int {
-		panic("Should never get input")
-	}
-
-	i, j := 0, 0
-	sendOutput := func(c int) {
-		if s.PrintingMap {
-
-			if c == '\n' {
-				j = 0
-				i++
-				s.Map = append(s.Map, nil)
-				return
-			}
-
-			switch c {
-			case '^':
-				s.DroidDir = North
-			case 'v':
-				s.DroidDir = South
-			case '<':
-				s.DroidDir = West
-			case '>':
-				s.DroidDir = East
-			}
-
-			if c == '^' || c == 'v' || c == '<' || c == '>' {
-				s.DroidStartI = i
-				s.DroidStartJ = j
-				s.DroidI = i
-				s.DroidJ = j
-				c = '#'
-			}
-
-			s.Map[len(s.Map)-1] = append(s.Map[len(s.Map)-1], Tile(c))
-			j++
-		}
-	}
-
-	vm.Run(getInput, sendOutput)
-	s.PrintMap()
-	fmt.Println(s.Part1())
+	s := Part1()
+	Part2(s)
 }
