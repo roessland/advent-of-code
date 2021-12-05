@@ -27,7 +27,6 @@ func part2(nums []int) {
 		}
 	}
 	fmt.Println("Part 2: ", incs)
-
 }
 
 func main() {

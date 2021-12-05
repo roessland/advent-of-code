@@ -6,96 +6,133 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
-func part1(bins []string) {
-	N := len(bins)
-	K := len(bins[0])
-	oneCounts := make([]int, K)
-	for _, bin := range bins {
-		for i, bit := range bin {
-			if bit == '1' {
-				oneCounts[i]++
+type Board struct {
+	Nums       [25]int
+	Marked     [25]bool
+	LastMarked int
+	HasWon     bool
+}
+
+type Input struct {
+	Nums   []int
+	Boards []Board
+}
+
+func part12(in Input) {
+	lastWin := -1
+	for _, draw := range in.Nums {
+		for k := range in.Boards {
+			if in.Boards[k].HasWon {
+				continue
+			}
+			for i := range in.Boards[k].Nums {
+				if in.Boards[k].Nums[i] == draw {
+					in.Boards[k].Marked[i] = true
+					in.Boards[k].LastMarked = draw
+					if hasWon(in.Boards[k]) {
+						if lastWin == -1 {
+							fmt.Println("Part 1:", computeScore(in.Boards[k]))
+						}
+						in.Boards[k].HasWon = true
+						lastWin = k
+					}
+				}
 			}
 		}
 	}
 
-	gammaRateStr := make([]byte, K)
-	epsilonStr := make([]byte, K)
-	for k := range gammaRateStr {
-		if oneCounts[k] > N/2 {
-			gammaRateStr[k] = '1'
-			epsilonStr[k] = '0'
-		} else {
-			gammaRateStr[k] = '0'
-			epsilonStr[k] = '1'
-		}
-	}
-
-	gammaRate, err := strconv.ParseUint(string(gammaRateStr), 2, 64)
-	if err != nil {
-		panic(fmt.Sprint(gammaRate))
-	}
-	epsilon, err := strconv.ParseUint(string(epsilonStr), 2, 64)
-	if err != nil {
-		panic("nah2")
-	}
-
-	fmt.Println(gammaRate*epsilon)
+	fmt.Println("Part 2:", computeScore(in.Boards[lastWin]))
 }
 
-func find(bins []string, k int, flip bool) int {
-	if len(bins) == 1 {
-		rating, err := strconv.ParseUint(bins[0], 2, 64)
-		if err != nil {
-			panic("whoops")
-		}
-		return int(rating)
-	}
-
-	var oneCount int
-	for _, bin := range bins {
-		if bin[k] == '1' {
-			oneCount++
+func computeScore(b Board) int {
+	sumUnmarked := 0
+	for i := 0; i < 5; i++ {
+		for j := 0; j < 5; j++ {
+			if !b.Marked[i*5+j] {
+				sumUnmarked += b.Nums[i*5+j]
+			}
 		}
 	}
-
-	var mostCommon byte
-	criteria := oneCount >= len(bins) - oneCount
-	if flip {
-		criteria = !criteria
-	}
-	if criteria {
-		mostCommon = '1'
-	} else {
-		mostCommon = '0'
-	}
-
-	var filteredBins []string
-	for _, bin := range bins {
-		if bin[k] == mostCommon {
-			filteredBins = append(filteredBins, bin)
-		}
-	}
-	return find(filteredBins, k+1, flip)
+	return sumUnmarked * b.LastMarked
 }
 
-func part2(bins []string) {
-	fmt.Println(find(bins, 0, false) * find(bins, 0, true))
+func hasWon(b Board) bool {
+nextRow:
+	for i := 0; i < 5; i++ {
+		for j := 0; j < 5; j++ {
+			if !b.Marked[i*5+j] {
+				continue nextRow
+			}
+		}
+		return true
+	}
+
+nextCol:
+	for j := 0; j < 5; j++ {
+		for i := 0; i < 5; i++ {
+			if !b.Marked[i*5+j] {
+				continue nextCol
+			}
+		}
+		return true
+	}
+
+	return false
 }
 
 func main() {
+	in := ReadInput()
+	part12(in)
+}
+
+func ReadInput() Input {
+	var in Input
+
 	f, err := os.Open("input.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
 	scanner := bufio.NewScanner(f)
-	var bins []string
-	for scanner.Scan() {
-		line := scanner.Text()
-		bins = append(bins, line)
+
+	scanner.Scan()
+	numsStr := scanner.Text()
+	for _, numStr := range strings.Split(numsStr, ",") {
+		n, err := strconv.Atoi(numStr)
+		if err != nil {
+			panic("nope")
+		}
+		in.Nums = append(in.Nums, n)
 	}
 
-	part1(bins)
-	part2(bins)
+	for scanner.Scan() {
+		if scanner.Text() == "" {
+			continue
+		}
+
+		var numsStr string
+		numsStr += scanner.Text() + " "
+		scanner.Scan()
+		numsStr += scanner.Text() + " "
+		scanner.Scan()
+		numsStr += scanner.Text() + " "
+		scanner.Scan()
+		numsStr += scanner.Text() + " "
+		scanner.Scan()
+		numsStr += scanner.Text() + " "
+
+		var b Board
+
+		for i, numStr := range strings.Fields(numsStr) {
+			b.Nums[i], err = strconv.Atoi(numStr)
+			if err != nil {
+				panic("atoi")
+			}
+		}
+
+		in.Boards = append(in.Boards, b)
+	}
+	return in
 }

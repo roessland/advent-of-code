@@ -90,12 +90,12 @@ func main() {
 		log.Fatal(err)
 	}
 	scanner := bufio.NewScanner(f)
-	var cmds []string
+	var bins []string
 	for scanner.Scan() {
 		line := scanner.Text()
-		cmds = append(cmds, line)
+		bins = append(bins, line)
 	}
 
-	part1(cmds)
-	part2(cmds)
+	part1(bins)
+	part2(bins)
 }
