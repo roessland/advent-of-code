@@ -6,50 +6,51 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 
 
 func main() {
+	t0 := time.Now()
 	g := ReadInput()
 	part1(g)
 	part2(g)
+	fmt.Println(time.Since(t0))
+
 }
 
 func part1(g Graph) {
 	visited := map[string]int{}
 	paths := search(g, "start", visited, false)
-	fmt.Println("Part 1:", len(paths))
+	fmt.Println("Part 1:", paths)
 }
 
 func part2(g Graph) {
 	visited := map[string]int{}
 	paths := search(g, "start", visited, true)
-	fmt.Println("Part 2:", len(paths))
+	fmt.Println("Part 2:", paths)
 }
 
-func search(g Graph, fromId string, visited map[string]int, token bool) [][]string {
+func search(g Graph, fromId string, visited map[string]int, token bool) int {
 	if fromId == "end" {
-		return [][]string{{"end"}}
+		return 1
 	}
 	if IsSmall(fromId) {
 		visited[fromId]++
 	}
-	var paths [][]string
+	var paths int
 	for _, neighborId := range g[fromId] {
 		if neighborId == "start" {
 			continue
 		}
 		if visited[neighborId] == 0 {
 			// Visit without using token
-			for _, neighborPath := range search(g, neighborId, visited, token) {
-				paths = append(paths, append([]string{fromId}, neighborPath...))
-			}
+			paths += search(g, neighborId, visited, token)
 		} else if IsSmall(neighborId) && token {
 			// Visit using token
-			for _, neighborPath := range search(g, neighborId, visited, false) {
-				paths = append(paths, append([]string{fromId}, neighborPath...))
-			}
+			paths += search(g, neighborId, visited, false)
+
 		}
 	}
 	if IsSmall(fromId) {
