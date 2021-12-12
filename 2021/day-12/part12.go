@@ -33,7 +33,6 @@ func search(g Graph, fromId string, visited map[string]int, token bool) [][]stri
 		return [][]string{{"end"}}
 	}
 	if IsSmall(fromId) {
-		visited = CopyMap(visited)
 		visited[fromId]++
 	}
 	var paths [][]string
@@ -53,6 +52,9 @@ func search(g Graph, fromId string, visited map[string]int, token bool) [][]stri
 			}
 		}
 	}
+	if IsSmall(fromId) {
+		visited[fromId]--
+	}
 	return paths
 }
 
@@ -71,14 +73,6 @@ func (g Graph) AddEdge(nodeId1 string, nodeId2 string) {
 
 func IsSmall(nodeId string) bool {
 	return strings.ToLower(nodeId) == nodeId
-}
-
-func CopyMap(visited map[string]int) map[string]int {
-	out := make(map[string]int)
-	for k, v := range visited {
-		out[k] = v
-	}
-	return out
 }
 
 func ReadInput() Graph {
