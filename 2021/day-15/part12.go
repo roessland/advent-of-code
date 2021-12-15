@@ -22,7 +22,7 @@ func main() {
 	// Remove edges going out from top left area so the part 1 doesn't go out of bounds.
 	// j5*I5 + i5
 	for id := 0; id < len(g.Nodes); id++ {
-		if id / I5 >= J1 || id % J5 >= I1 {
+		if id / I5 >= J1 || id % I5 >= I1 {
 			// We're outside top left area already.
 			continue
 		}
