@@ -12,7 +12,6 @@ import (
 )
 
 func main() {
-
 	t0 := time.Now()
 	g, I1, J1 := ReadInput()
 	I5, J5 := I1*5, J1*5
@@ -36,7 +35,7 @@ func main() {
 	dist, _ = digraph.Dijkstra(g, 0)
 	fmt.Println("Part 1:", dist[(J1-1)*I5+I1-1]) // 811
 
-	fmt.Println(time.Since(t0)) // 23 seconds
+	fmt.Println(time.Since(t0)) // 160 ms
 }
 
 
