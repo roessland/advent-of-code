@@ -68,7 +68,6 @@ func (n *Number) Reduce() {
 			splittable.Split()
 			continue
 		}
-
 		break
 	}
 }
@@ -95,11 +94,11 @@ func (n *Number) findSplittable() *Number {
 	if n == nil {
 		return nil
 	}
-	if n.value >= 10 {
-		return n
-	}
 	if leftSplittable := n.left.findSplittable(); leftSplittable != nil {
 		return leftSplittable
+	}
+	if n.value >= 10 {
+		return n
 	}
 	if rightSplittable := n.right.findSplittable(); rightSplittable != nil {
 		return rightSplittable
@@ -186,8 +185,7 @@ func FromString(str string) *Number {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	var f func(listOrInt interface{}, parent *Number) *Number
+	var f func(interface{}, *Number) *Number
 	f = func(listOrInt interface{}, parent *Number) *Number {
 		switch v := listOrInt.(type) {
 		case json.Number:
