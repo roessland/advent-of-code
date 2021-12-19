@@ -6,47 +6,11 @@ import (
 	. "github.com/roessland/gopkg/mathutil"
 	"log"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
 )
-
-var rotations []Mat
-
-func init() {
-	// Rotate 90 degrees around right hand axis
-	R := Mat{
-		1, 0, 0,
-		0, 0, 1,
-		0, -1, 0,
-	}
-
-	// Rotate 90 degrees around upwards axis
-	U := Mat{
-		0, 1, 0,
-		-1, 0, 0,
-		0, 0, 1,
-	}
-
-	// I used a Silva compass to visualize these rotations.
-	// It's lying in front of me on the table, pointing to my right.
-	baseRotations := []Mat{
-		Identity(),                      // Laying flat
-		R.MulMat(R),                     // Laying flat upside down
-		U.MulMat(R),                     // Standing on flat short edge
-		U.MulMat(R).MulMat(R).MulMat(R), // Standing on rounded edge
-		R,                               // Standing on 1:25k edge
-		U.MulMat(U).MulMat(R),           // Standing on 1:50k edge
-	}
-
-	// For each base rotation, add all rotations around up axis.
-	Us := []Mat{Identity(), U, U.MulMat(U), U.MulMat(U).MulMat(U)}
-	for _, baseRot := range baseRotations {
-		for _, Ui := range Us {
-			rotations = append(rotations, baseRot.MulMat(Ui))
-		}
-	}
-}
 
 type Scanner struct {
 	Id       int
@@ -59,12 +23,20 @@ func (s Scanner) String() string {
 	return fmt.Sprintf("Scanner%d", s.Id)
 }
 
-func Distances(offsets map[Vec]bool) map[Vec]bool {
+func AllDistances(offsets map[Vec]bool) map[Vec]bool {
 	distances := make(map[Vec]bool)
 	for u := range offsets {
 		for v := range offsets {
 			distances[u.Sub(v).Abs().Sort()] = true
 		}
+	}
+	return distances
+}
+
+func Distances(v Vec, offsets map[Vec]bool) map[Vec]bool {
+	distances := make(map[Vec]bool)
+	for u := range offsets {
+		distances[u.Sub(v).Abs().Sort()] = true
 	}
 	return distances
 }
@@ -88,115 +60,29 @@ func PositionOverlap(absPos1, absPos2 map[Vec]bool) int {
 	return common
 }
 
-func DistanceOverlap(dists1, dists2 map[Vec]bool) int {
-	common := 0
+func DistanceOverlap(dists1, dists2 map[Vec]bool) map[Vec]bool {
+	common := map[Vec]bool{}
 	for d := range dists1 {
 		if dists2[d] {
-			common++
+			common[d] = true
 		}
 	}
 	return common
 }
 
-type Vec struct {
-	a0, a1, a2 int
-}
-
-func (U Vec) Add(V Vec) (W Vec) {
-	return Vec{
-		U.a0 + V.a0,
-		U.a1 + V.a1,
-		U.a2 + V.a2,
-	}
-}
-
-func (U Vec) Neg() (V Vec) {
-	return Vec{-U.a0, -U.a1, -U.a2}
-}
-
-func (U Vec) Sort() Vec {
-	if U.a1 < U.a0 {
-		U.a0, U.a1 = U.a1, U.a0
-	}
-	if U.a2 < U.a1 {
-		U.a1, U.a2 = U.a2, U.a1
-	}
-	if U.a1 < U.a0 {
-		U.a0, U.a1 = U.a1, U.a0
-	}
-	return U
-}
-
-func (U Vec) Sub(V Vec) (W Vec) {
-	return Vec{
-		U.a0 - V.a0,
-		U.a1 - V.a1,
-		U.a2 - V.a2,
-	}
-}
-
-func (U Vec) Dist1(V Vec) int {
-	return AbsInt(U.a0-V.a0) + AbsInt(U.a1-V.a1) + AbsInt(U.a2-V.a2)
-}
-
-func (U Vec) Abs() Vec {
-	return Vec{AbsInt(U.a0), AbsInt(U.a1), AbsInt(U.a2)}
-}
-
-func (U Vec) Norm1() int {
-	return AbsInt(U.a0) + AbsInt(U.a1) + AbsInt(U.a2)
-}
-
-type Mat struct {
-	a00, a01, a02 int
-	a10, a11, a12 int
-	a20, a21, a22 int
-}
-
-func Identity() Mat {
-	return Mat{
-		1, 0, 0,
-		0, 1, 0,
-		0, 0, 1,
-	}
-}
-
-func (A Mat) String() string {
-	return fmt.Sprintf("[%4d\t%4d\t%4d\n %4d\t%4d\t%4d\n %4d\t%4d\t%4d  ]\n",
-		A.a00, A.a01, A.a02,
-		A.a10, A.a11, A.a12,
-		A.a20, A.a21, A.a22)
-}
-
-func (A Mat) T() Mat {
-	return Mat{
-		A.a00, A.a10, A.a20,
-		A.a01, A.a11, A.a21,
-		A.a02, A.a12, A.a22,
-	}
-}
-
-func (A Mat) MulMat(B Mat) (C Mat) {
-	C.a00 = A.a00*B.a00 + A.a01*B.a10 + A.a02*B.a20
-	C.a01 = A.a00*B.a01 + A.a01*B.a11 + A.a02*B.a21
-	C.a02 = A.a00*B.a02 + A.a01*B.a12 + A.a02*B.a22
-	C.a10 = A.a10*B.a00 + A.a11*B.a10 + A.a12*B.a20
-	C.a11 = A.a10*B.a01 + A.a11*B.a11 + A.a12*B.a21
-	C.a12 = A.a10*B.a02 + A.a11*B.a12 + A.a12*B.a22
-	C.a20 = A.a20*B.a00 + A.a21*B.a10 + A.a22*B.a20
-	C.a21 = A.a20*B.a01 + A.a21*B.a11 + A.a22*B.a21
-	C.a22 = A.a20*B.a02 + A.a21*B.a12 + A.a22*B.a22
-	return C
-}
-
-func (A Mat) MulVec(B Vec) (C Vec) {
-	C.a0 = A.a00*B.a0 + A.a01*B.a1 + A.a02*B.a2
-	C.a1 = A.a10*B.a0 + A.a11*B.a1 + A.a12*B.a2
-	C.a2 = A.a20*B.a0 + A.a21*B.a1 + A.a22*B.a2
-	return C
-}
-
 func main() {
+
+	f, err := os.Create("pprof.txt")
+	if err != nil {
+		log.Fatal("could not create CPU profile: ", err)
+	}
+	defer f.Close() // error handling omitted for example
+	if err := pprof.StartCPUProfile(f); err != nil {
+		log.Fatal("could not start CPU profile: ", err)
+	}
+
+	defer pprof.StopCPUProfile()
+
 	t0 := time.Now()
 
 	scanners := ReadInput()
@@ -234,31 +120,46 @@ func LocateScanners(scanners []*Scanner) {
 		scannersUnknown[scanner] = struct{}{}
 	}
 
-	distances := make(map[*Scanner]map[Vec]bool)
+	allDistances := make(map[*Scanner]map[Vec]bool)
 	for _, scanner := range scanners {
-		distances[scanner] = Distances(scanner.Offsets)
+		allDistances[scanner] = AllDistances(scanner.Offsets)
 	}
 
 	for len(scannersTodo) > 0 {
 		scannerA := PickAnyFrom(scannersTodo)
-		absDistsA := distances[scannerA]
+		absDistsA := allDistances[scannerA]
 		absPosA := AbsolutePositions(scannerA.Position, scannerA.Rotation, scannerA.Offsets)
 
 		// Compare this scanner with all unknown scanners.
 		for scannerB := range scannersUnknown {
-			absDistsB := distances[scannerB]
+			absDistsB := allDistances[scannerB]
 
-			if DistanceOverlap(absDistsA, absDistsB) < 67 { // 12*11/2 is 67
+			distanceOverlap := DistanceOverlap(absDistsA, absDistsB)
+
+			// Optimization, not necessary
+			if len(distanceOverlap) < 67 { // 12*11/2 is 67
 				continue
 			}
 
 			// Just assume that some A offset and some B offset point
 			// to the same beacon, and check if that assumption holds.
 			for offA := range scannerA.Offsets {
+
+				// Optimization, not necessary
+				if len(DistanceOverlap(Distances(offA, scannerA.Offsets), distanceOverlap)) < 12 {
+					continue
+				}
+
 				AX := scannerA.Rotation.MulVec(offA)
 				OX := scannerA.Position.Add(AX)
 
 				for offB := range scannerB.Offsets {
+
+					// Optimization, not necessary
+					if len(DistanceOverlap(Distances(offB, scannerB.Offsets), distanceOverlap)) < 12 {
+						continue
+					}
+
 					for _, BRot := range rotations {
 						BX := BRot.MulVec(offB)
 						XB := BX.Neg()
