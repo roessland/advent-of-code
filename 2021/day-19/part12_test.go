@@ -29,6 +29,13 @@ func TestMulMat(t *testing.T) {
 	require.Equal(t, expectC, actualC)
 }
 
+func TestSort(t *testing.T) {
+	require.Equal(t, Vec{1, 2, 3}, Vec{1, 2, 3}.Sort())
+	require.Equal(t, Vec{1, 2, 3}, Vec{3, 2, 1}.Sort())
+	require.Equal(t, Vec{1, 2, 3}, Vec{2, 3, 1}.Sort())
+	require.Equal(t, Vec{1, 2, 3}, Vec{2, 1, 3}.Sort())
+}
+
 func TestMulVec(t *testing.T) {
 	A := Mat{
 		1, 2, 3,

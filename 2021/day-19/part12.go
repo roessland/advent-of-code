@@ -59,6 +59,16 @@ func (s Scanner) String() string {
 	return fmt.Sprintf("Scanner%d", s.Id)
 }
 
+func Distances(offsets map[Vec]bool) map[Vec]bool {
+	distances := make(map[Vec]bool)
+	for u := range offsets {
+		for v := range offsets {
+			distances[u.Sub(v).Abs().Sort()] = true
+		}
+	}
+	return distances
+}
+
 func AbsolutePositions(pos Vec, rot Mat, offsets map[Vec]bool) map[Vec]bool {
 	absolutePositions := make(map[Vec]bool)
 	for offset := range offsets {
@@ -68,10 +78,20 @@ func AbsolutePositions(pos Vec, rot Mat, offsets map[Vec]bool) map[Vec]bool {
 	return absolutePositions
 }
 
-func Overlap(absPos1, absPos2 map[Vec]bool) int {
+func PositionOverlap(absPos1, absPos2 map[Vec]bool) int {
 	common := 0
 	for p1 := range absPos1 {
 		if absPos2[p1] {
+			common++
+		}
+	}
+	return common
+}
+
+func DistanceOverlap(dists1, dists2 map[Vec]bool) int {
+	common := 0
+	for d := range dists1 {
+		if dists2[d] {
 			common++
 		}
 	}
@@ -94,8 +114,37 @@ func (U Vec) Neg() (V Vec) {
 	return Vec{-U.a0, -U.a1, -U.a2}
 }
 
+func (U Vec) Sort() Vec {
+	if U.a1 < U.a0 {
+		U.a0, U.a1 = U.a1, U.a0
+	}
+	if U.a2 < U.a1 {
+		U.a1, U.a2 = U.a2, U.a1
+	}
+	if U.a1 < U.a0 {
+		U.a0, U.a1 = U.a1, U.a0
+	}
+	return U
+}
+
+func (U Vec) Sub(V Vec) (W Vec) {
+	return Vec{
+		U.a0 - V.a0,
+		U.a1 - V.a1,
+		U.a2 - V.a2,
+	}
+}
+
 func (U Vec) Dist1(V Vec) int {
 	return AbsInt(U.a0-V.a0) + AbsInt(U.a1-V.a1) + AbsInt(U.a2-V.a2)
+}
+
+func (U Vec) Abs() Vec {
+	return Vec{AbsInt(U.a0), AbsInt(U.a1), AbsInt(U.a2)}
+}
+
+func (U Vec) Norm1() int {
+	return AbsInt(U.a0) + AbsInt(U.a1) + AbsInt(U.a2)
 }
 
 type Mat struct {
@@ -185,13 +234,24 @@ func LocateScanners(scanners []*Scanner) {
 		scannersUnknown[scanner] = struct{}{}
 	}
 
+	distances := make(map[*Scanner]map[Vec]bool)
+	for _, scanner := range scanners {
+		distances[scanner] = Distances(scanner.Offsets)
+	}
+
 	for len(scannersTodo) > 0 {
 		scannerA := PickAnyFrom(scannersTodo)
-
+		absDistsA := distances[scannerA]
 		absPosA := AbsolutePositions(scannerA.Position, scannerA.Rotation, scannerA.Offsets)
 
 		// Compare this scanner with all unknown scanners.
 		for scannerB := range scannersUnknown {
+			absDistsB := distances[scannerB]
+
+			if DistanceOverlap(absDistsA, absDistsB) < 67 { // 12*11/2 is 67
+				continue
+			}
+
 			// Just assume that some A offset and some B offset point
 			// to the same beacon, and check if that assumption holds.
 			for offA := range scannerA.Offsets {
@@ -204,7 +264,7 @@ func LocateScanners(scanners []*Scanner) {
 						XB := BX.Neg()
 						BPos := OX.Add(XB)
 						absPosB := AbsolutePositions(BPos, BRot, scannerB.Offsets)
-						if Overlap(absPosA, absPosB) >= 12 {
+						if PositionOverlap(absPosA, absPosB) >= 12 {
 							scannerB.Position = BPos
 							scannerB.Rotation = BRot
 							scannersTodo[scannerB] = struct{}{}
