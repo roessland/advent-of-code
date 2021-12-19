@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/pkg/errors v0.9.1
 	github.com/roessland/gopkg v1.3.4
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 )
 
 // replace github.com/roessland/gopkg v1.3.3 => "C:/Users/andre/go/src/github.com/roessland/gopkg"
