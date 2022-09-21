@@ -3,9 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/roessland/gopkg/priorityqueue"
 	"log"
+	"math"
 	"os"
 )
+
+const Height = 7
+const Width = 13
 
 var targetRoomAtJ = map[int]byte{
 	3: 'A',
@@ -14,7 +19,7 @@ var targetRoomAtJ = map[int]byte{
 	9: 'D',
 }
 
-type Burrow [5][13]byte
+type Burrow [Height][Width]byte
 
 type Pos struct {
 	I, J int
@@ -37,8 +42,8 @@ func (p Pos) Right() Pos {
 }
 
 type Move struct {
-	Pos  Pos
-	Dist int
+	Pos    Pos
+	Energy float64
 }
 
 func (b Burrow) At(pos Pos) byte {
@@ -51,9 +56,38 @@ func (b Burrow) Print() {
 	}
 	fmt.Println()
 }
+func (b Burrow) IsWinningState() bool {
+	//#############
+	//#...........#
+	//###C#C#A#B###
+	//  #D#D#B#A#
+	//  #########
+	for col, amph := 3, byte('A'); amph <= 'D'; col, amph = col+2, amph+1 {
+		for row := 2; row < 4; row++ {
+			if b[row][col] != amph {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (b Burrow) AmphipodPositions() []Pos {
+	var poses []Pos
+	for i := 1; i < Height-1; i++ {
+		for j := 1; j < Width-1; j++ {
+			pos := Pos{i, j}
+			r := b.At(pos)
+			if 'A' <= r && r <= 'Z' {
+				poses = append(poses, pos)
+			}
+		}
+	}
+	return poses
+}
 
 func ReadInput() (burrow Burrow) {
-	f, err := os.Open("input2.txt")
+	f, err := os.Open("input_part1.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,8 +102,41 @@ func ReadInput() (burrow Burrow) {
 	return burrow
 }
 
-func BFS(b Burrow) {
-	fmt.Println(GetMoves(b, Pos{2, 9}))
+func Dijkstra(b0 Burrow) {
+	energyTo := map[Burrow]float64{b0: 0.0}
+	Q := priorityqueue.New[Burrow]()
+	Q.Push(b0, 0)
+
+	for Q.Len() > 0 {
+		b := Q.Pop()
+		if b.IsWinningState() {
+			b.Print()
+			fmt.Println(energyTo[b])
+			return
+		}
+		for _, amphipodPos0 := range b.AmphipodPositions() {
+			for _, move := range GetMoves(b, amphipodPos0) {
+				bNext := DoMove(b, amphipodPos0, move.Pos)
+				currEnergy, ok := energyTo[bNext]
+				if !ok {
+					currEnergy = math.MaxFloat64
+				}
+
+				altEnergy := energyTo[b] + move.Energy
+				if altEnergy < currEnergy {
+					energyTo[bNext] = altEnergy
+					Q.Push(bNext, altEnergy)
+				}
+			}
+		}
+	}
+	fmt.Println(GetMoves(b0, Pos{2, 9}))
+}
+
+func DoMove(b Burrow, p0, p1 Pos) Burrow {
+	b[p1.I][p1.J] = b.At(p0)
+	b[p0.I][p0.J] = '.'
+	return b
 }
 
 func GetMoves(b Burrow, p0 Pos) []Move {
@@ -83,8 +150,8 @@ func GetMoves(b Burrow, p0 Pos) []Move {
 
 	visited := map[Pos]Move{}
 
-	var dfs func(p Pos, energy int)
-	dfs = func(p Pos, energy int) {
+	var dfs func(p Pos, energy float64)
+	dfs = func(p Pos, energy float64) {
 		if b.At(p) != '.' && p != p0 {
 			return
 		}
@@ -138,8 +205,8 @@ func GetMoves(b Burrow, p0 Pos) []Move {
 	return moves
 }
 
-func EnergyPerStep(amph byte) int {
-	var baseCost int
+func EnergyPerStep(amph byte) float64 {
+	var baseCost float64
 	switch amph {
 	case 'A':
 		baseCost = 1
@@ -157,5 +224,5 @@ func EnergyPerStep(amph byte) int {
 
 func main() {
 	b := ReadInput()
-	BFS(b)
+	Dijkstra(b)
 }
