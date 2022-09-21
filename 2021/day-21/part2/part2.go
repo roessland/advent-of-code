@@ -3,13 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/roessland/gopkg/mathutil"
+	"time"
 )
 
-// https://adventofcode.com/2021/day/21
-
-type Args [4]int
-
-var cache = map[Args]Pair{}
+var cache = map[[4]int]Pair{}
 
 type Pair struct {
 	Fst, Snd int
@@ -20,9 +17,9 @@ func G(s1, p1, s2, p2 int) Pair {
 		return Pair{Fst: 0, Snd: 1}
 	}
 
-	cached, ok := cache[Args{s1, p1, s2, p2}]
+	cachedA, ok := cache[[4]int{s1, p1, s2, p2}]
 	if ok {
-		return cached
+		return cachedA
 	}
 
 	W1 := 0
@@ -45,11 +42,13 @@ func G(s1, p1, s2, p2 int) Pair {
 	}
 
 	ret := Pair{W1, W2}
-	cache[Args{s1, p1, s2, p2}] = ret
+	cache[[4]int{s1, p1, s2, p2}] = ret
 	return ret
 }
 
 func main() {
+	t0 := time.Now()
 	wins := G(0, 4, 0, 3)
 	fmt.Println(mathutil.MaxInt(wins.Fst, wins.Snd))
+	fmt.Println(time.Since(t0))
 }

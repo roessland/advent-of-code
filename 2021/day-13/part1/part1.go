@@ -25,6 +25,9 @@ func (dots Dots) Print() {
 	im := make([][]rune, maxY+1)
 	for y := 0; y <= maxY; y++ {
 		im[y] = make([]rune, maxX+1)
+		for x := 0; x < len(im[y]); x++ {
+			im[y][x] = ' '
+		}
 	}
 	for pos, _ := range dots {
 		im[pos.Y][pos.X] = '█'
