@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"github.com/roessland/gopkg/mathutil"
 	"github.com/roessland/gopkg/priorityqueue"
 	"log"
 	"math"
@@ -104,17 +105,36 @@ func ReadInput() (burrow Burrow) {
 	return burrow
 }
 
-func Dijkstra(b0 Burrow) (cost float64) {
+func H(b Burrow) float64 {
+	estimate := 0.0
+	for _, amphipodPos := range b.AmphipodPositions() {
+		typ := b.At(amphipodPos)
+		energyPerStep := EnergyPerStep(typ)
+		currentCol := amphipodPos.J
+		targetCol := map[byte]int{
+			'A': 3,
+			'B': 5,
+			'C': 7,
+			'D': 9,
+		}[typ]
 
+		steps := mathutil.AbsInt(currentCol - targetCol)
+		if currentCol != targetCol {
+			steps += 2 * (amphipodPos.I - 1)
+		}
+
+		estimate += float64(steps) * energyPerStep
+	}
+	return estimate
+}
+
+func AStar(b0 Burrow) (cost float64) {
 	energyTo := map[Burrow]float64{b0: 0.0}
 	Q := priorityqueue.New[Burrow]()
-	Q.Push(b0, 0)
+	Q.Push(b0, H(b0))
 
 	for Q.Len() > 0 {
-		b, pri := Q.PopPri()
-		if energyTo[b] != pri {
-			continue
-		}
+		b := Q.Pop()
 		if b.IsWinningState() {
 			bWinning := b
 			cost = energyTo[bWinning]
@@ -131,7 +151,7 @@ func Dijkstra(b0 Burrow) (cost float64) {
 				altEnergy := energyTo[b] + move.Energy
 				if altEnergy < currEnergy {
 					energyTo[bNext] = altEnergy
-					Q.Push(bNext, altEnergy)
+					Q.Push(bNext, altEnergy+H(bNext))
 				}
 			}
 		}
@@ -252,7 +272,7 @@ func EnergyPerStep(amph byte) float64 {
 func main() {
 	b0 := ReadInput()
 	t0 := time.Now()
-	cost := Dijkstra(b0)
+	cost := AStar(b0)
 	fmt.Println(cost)
 	fmt.Println(time.Since(t0))
 }
