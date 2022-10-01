@@ -1,0 +1,22 @@
+| op       | x                |  y | z  | w  |
+|---|---|---|---|---|
+| $f_{k-1}$       | `x=?` | `y=?` | `z=zp` | `w=?`
+| inp w         | `x=?` | `y=?` | `z=zp` | `w=i`
+| mul x 0       | `x=0` | `y=?` | `z=zp` | `w=i`
+| add x z       | `x=zp` | `y=?` | `z=zp` | `w=i`
+| mod x 26      | `x=zp%26` | `y=?` | `z=zp` | `w=i`
+| div z a       | `x=zp%26` | `y=?` | `z=zp/a` | `w=i`
+| add x b       | `x=zp%26+b` | `y=?` | `z=zp/a` | `w=i`
+| eql x w       | `x=(zp%26+b)==i` | `y=?` | `z=zp/a` | `w=i`
+| eql x 0       | `x=(zp%26+b)!=i` | `y=?` | `z=zp/a` | `w=i`
+| mul y 0       | `x=(zp%26+b)!=i` | `y=0` | `z=zp/a` | `w=i`
+| add y 25      | `x=(zp%26+b)!=i` | `y=25` | `z=zp/a` | `w=i`
+| mul y x       | `x=(zp%26+b)!=i` | `y=25*((zp%26+b)!=i)` | `z=zp/a` | `w=i`
+| add y 1       | `x=(zp%26+b)!=i` | `y=25*((zp%26+b)!=i)+1` | `z=zp/a` | `w=i`
+| mul z y       | `x=(zp%26+b)!=i` | `y=25*((zp%26+b)!=i)+1` | `z=zp/a * (25*((zp%26+b)!=i)+1)` | `w=i`
+| mul y 0       | `x=(zp%26+b)!=i` | `y=0` | `z=zp/a * (25*((zp%26+b)!=i)+1)` | `w=i`
+| add y w       | `x=(zp%26+b)!=i` | `y=i` | `z=zp/a * (25*((zp%26+b)!=i)+1)` | `w=i`
+| add y c       | `x=(zp%26+b)!=i` | `y=i+c` | `z=zp/a * (25*((zp%26+b)!=i)+1)` | `w=i`
+| mul y x       | `x=(zp%26+b)!=i` | `y=(i+c)*((zp%26+b)!=i)` | `z=zp/a * (25*((zp%26+b)!=i)+1)` | `w=i`
+| add z y       | `x=(zp%26+b)!=i` | `y=(i+c)*((zp%26+b)!=i)` | `z=zp/a * (25*((zp%26+b)!=i)+1) + (i+c)*((zp%26+b)!=i)` | `w=i`
+| output        |  |  | `z=zp/a * (25*((zp%26+b)!=i)+1) + (i+c)*((zp%26+b)!=i)` |

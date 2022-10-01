@@ -29,7 +29,7 @@ func TestComputeNegate(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			reg := Compute(instrs, tc.Input)
+			reg := Compute(instrs, tc.Input, Reg{})
 			require.EqualValues(t, tc.X, reg.X)
 		})
 	}
@@ -65,7 +65,7 @@ func TestComputeIsTriple(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			reg := Compute(instrs, tc.Input)
+			reg := Compute(instrs, tc.Input, Reg{})
 			assert.Equal(t, tc.Expect, reg.Z)
 		})
 	}
@@ -108,7 +108,7 @@ func TestComputeBinary(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			reg := Compute(instrs, tc.Input)
+			reg := Compute(instrs, tc.Input, Reg{})
 			w, x, y, z := reg.W, reg.X, reg.Y, reg.Z
 			got := fmt.Sprintf("%d%d%d%d", w, x, y, z)
 			assert.Equal(t, tc.Expect, got)
@@ -127,7 +127,7 @@ func TestComputeInpOut(t *testing.T) {
 		{Type: Inp, A: 'z'},
 		{Type: MulC, A: 'z', B: 5},
 	}
-	reg := Compute(instrs, []int{1, 2, 3, 4})
+	reg := Compute(instrs, []int{1, 2, 3, 4}, Reg{})
 	require.EqualValues(t, Reg{1 * 2, 2 * 3, 3 * 4, 4 * 5}, reg)
 }
 
@@ -159,7 +159,7 @@ func TestComputePtrs(t *testing.T) {
 		{Type: Inp, A: 'x'},          // x=1
 		{Type: EqlP, A: 'x', B: 'w'}, // x=1
 	}
-	reg := Compute(instrs, []int{2, 3, 4, 2, 3, 1})
+	reg := Compute(instrs, []int{2, 3, 4, 2, 3, 1}, Reg{})
 	require.EqualValues(t, Reg{1, 1, 10, 20}, reg)
 }
 
@@ -208,12 +208,110 @@ func BenchmarkComputeInput(b *testing.B) {
 		b.Fatal(err)
 	}
 	instrs := ParseInput(f)
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
 
-	for i := 0; i < 14; i++ {
-		for j := 0; j < b.N; j++ {
-			input := make([]int, 14)
-			input[i] = 1
-			Compute(instrs, input)
+	for j := 0; j < b.N; j++ {
+		if j%1000 == 0 {
+			RandomizeInput(inps)
 		}
+		Compute(instrs, inps, Reg{})
+	}
+}
+
+func BenchmarkGeneratedCode(b *testing.B) {
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+
+	for j := 0; j < b.N; j++ {
+		if j%1000 == 0 {
+			RandomizeInput(inps)
+		}
+		F13(inps)
+	}
+}
+
+func BenchmarkCodegen(B *testing.B) {
+	f, err := fs.Open("input.txt")
+	if err != nil {
+		B.Fatal(err)
+	}
+	instrs := ParseInput(f)
+	a, b, c := ExtractABC(instrs)
+
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+	for j := 0; j < B.N; j++ {
+		if j%1000 == 0 {
+			RandomizeInput(inps)
+		}
+		Codegen(a, b, c, inps)
+	}
+}
+
+func BenchmarkModuleMemoization(b *testing.B) {
+	f, err := fs.Open("input.txt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	instrs := ParseInput(f)
+	_, F := GetModulesWithMemoization(instrs)
+
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+	for j := 0; j < b.N; j++ {
+		if j%100 == 0 {
+			RandomizeInput(inps)
+		}
+		F[13](inps)
+	}
+}
+
+func TestGetModulesWithMemoization(t *testing.T) {
+	f, err := fs.Open("input.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrs := ParseInput(f)
+
+	_, F := GetModulesWithMemoization(instrs)
+
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+	require.Equal(t, Compute(instrs, inps, Reg{}).Z, F[13](inps))
+}
+
+func TestCodegen(t *testing.T) {
+	f, err := fs.Open("input.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrs := ParseInput(f)
+	a, b, c := ExtractABC(instrs)
+
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+	require.Equal(t, Compute(instrs, inps, Reg{}).Z, Codegen(a, b, c, inps))
+}
+
+func TestF13(t *testing.T) {
+	f, err := fs.Open("input.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrs := ParseInput(f)
+
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+	for i := 0; i < 100; i++ {
+		RandomizeInput(inps)
+		require.Equal(t, Compute(instrs, inps, Reg{}).Z, F13(inps))
+	}
+}
+
+func BenchmarkRandomizeInput(b *testing.B) {
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+	for j := 0; j < b.N; j++ {
+		RandomizeInput(inps)
+	}
+}
+
+func BenchmarkPartialRandomizeInput(b *testing.B) {
+	inps := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+	for j := 0; j < b.N; j++ {
+		PartialRandomizeInput(inps)
 	}
 }

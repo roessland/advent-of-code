@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/roessland/gopkg/mathutil"
+	"github.com/roessland/gopkg/priorityqueue"
+	"github.com/roessland/gopkg/sliceutil"
 	"io"
 	"log"
 	"math/rand"
@@ -11,6 +13,13 @@ import (
 	"strconv"
 	"strings"
 )
+
+var a, b, c []int
+
+func init() {
+	allInstrs := ParseFile("input.txt")
+	a, b, c = ExtractABC(allInstrs)
+}
 
 type InstructionType int
 
@@ -197,7 +206,7 @@ type Instruction struct {
 }
 
 func (i Instruction) String() string {
-	return i.Text + "\n"
+	return i.Text
 }
 
 func ParseFile(filename string) []Instruction {
@@ -305,11 +314,50 @@ type Triplet struct {
 	A, B, C int
 }
 
-func main() {
+type ModuleFunc map[int]func(z int, d int) int
+type CumulativeFunc map[int]func([]int) int
 
-	allInstrs := ParseFile("input.txt")
+func CompareModules(allInstrs []Instruction) {
+	for k := -1; k < 14; k++ {
+		fmt.Printf("|k=%d", k)
+	}
+	fmt.Println("|")
+	for k := -1; k < 14; k++ {
+		fmt.Printf("|----")
+	}
+	fmt.Println("|")
 
-	fk := map[int]func(z int, d int) int{}
+	for i := 0; i < 18; i++ {
+		fmt.Printf("|%d|", i)
+		for k := 0; k < 14; k++ {
+			instr := allInstrs[k*18+i]
+			fmt.Print(instr, "|")
+		}
+		fmt.Println()
+	}
+}
+
+func ExtractABC(allInstrs []Instruction) (as, bs, cs []int) {
+	for k := 0; k < 14; k++ {
+		instr := allInstrs[k*18+4]
+		as = append(as, instr.B)
+	}
+
+	for k := 0; k < 14; k++ {
+		instr := allInstrs[k*18+5]
+		bs = append(bs, instr.B)
+	}
+
+	for k := 0; k < 14; k++ {
+		instr := allInstrs[k*18+15]
+		cs = append(cs, instr.B)
+	}
+
+	return as, bs, cs
+}
+
+func GetModulesWithMemoization(allInstrs []Instruction) (fk ModuleFunc, Fk CumulativeFunc) {
+	fk = make(ModuleFunc)
 	cache := map[Triplet]int{}
 	for i := 0; i < 14; i++ {
 		fk[i] = (func(i_ int) func(z, in int) int {
@@ -338,23 +386,193 @@ func main() {
 		}(i)
 	}
 
-nextInput:
-	for {
-		input := rand.Intn(99999999999999)
-		inps := mathutil.ToDigitsInt(input, 10)
-		if len(inps) != 14 {
-			continue
-		}
-		for i := range inps {
-			if inps[i] == 0 {f
-				continue nextInput
-			}
-		}
+	return fk, F
+}
 
-		z := F[13](inps)
-		if z == 0 {
-			fmt.Println("OHLY BALLS", inps, z)
+func RandomizeInput(inps []int) {
+	for i := 0; i < len(inps); i++ {
+		inps[i] = 1 + rand.Intn(9)
+	}
+}
+
+func PartialRandomizeInput(inps []int) {
+	inps[rand.Intn(len(inps))] = 1 + rand.Intn(9)
+}
+
+func FirstAlgo() {
+	validInputs := map[int]map[int]bool{}
+	validInputs[14] = map[int]bool{0: true}
+
+	zMax := 10760000
+	for k := 13; k >= 6; k-- {
+		validInputs[k] = map[int]bool{}
+		for zk := 0; zk < zMax; zk++ {
+			for dk := 1; dk <= 9; dk++ {
+				zNext := f(zk, dk, k)
+				if validInputs[k+1][zNext] {
+					validInputs[k][zk] = true
+				}
+			}
 		}
 	}
 
+	for k := 0; k < 14; k++ {
+		if zk, ok := validInputs[k]; ok {
+			fmt.Println(k, len(zk), " ")
+		}
+	}
 }
+
+func asInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func f(z, i, k int) int {
+	a := a[k]
+	b := b[k]
+	c := c[k]
+	return z/a*(25*(asInt(z%26+b != i))+1) + (i+c)*asInt(z%26+b != i)
+}
+
+func Codegen(a, b, c, i []int) (z int) {
+	for k := 0; k < 14; k++ {
+		z = f(z, i[k], k)
+	}
+	return z
+}
+
+func computeZ1() {
+	// [{1 13} {2 346} {3 9005} {4 234136} {5 9005} {6 234147} {7 6087836} {8 234147} {9 9005} {10 346} {11 9005} {12 346} {13 13} {14 0}] [1 1 8 4 1 2 3 1 1 1 7 1 8 9]
+	//11841231117189
+	// 1 1 8
+	for d := 1; d <= 9; d++ {
+		fmt.Println(d, f(346, d, 13))
+	}
+}
+
+func F13(i []int) (z int) {
+	asInt := func(b bool) int {
+		if b {
+			return 1
+		}
+		return 0
+	}
+
+	z = z/1*(25*(asInt(z%26+14 != i[0]))+1) + (i[0]+12)*asInt(z%26+14 != i[0])
+	z = z/1*(25*(asInt(z%26+15 != i[1]))+1) + (i[1]+7)*asInt(z%26+15 != i[1])
+	z = z/1*(25*(asInt(z%26+12 != i[2]))+1) + (i[2]+1)*asInt(z%26+12 != i[2])
+	z = z/1*(25*(asInt(z%26+11 != i[3]))+1) + (i[3]+2)*asInt(z%26+11 != i[3])
+	z = z/26*(25*(asInt(z%26+-5 != i[4]))+1) + (i[4]+4)*asInt(z%26+-5 != i[4])
+	z = z/1*(25*(asInt(z%26+14 != i[5]))+1) + (i[5]+15)*asInt(z%26+14 != i[5])
+	z = z/1*(25*(asInt(z%26+15 != i[6]))+1) + (i[6]+11)*asInt(z%26+15 != i[6])
+	z = z/26*(25*(asInt(z%26+-13 != i[7]))+1) + (i[7]+5)*asInt(z%26+-13 != i[7])
+	z = z/26*(25*(asInt(z%26+-16 != i[8]))+1) + (i[8]+3)*asInt(z%26+-16 != i[8])
+	z = z/26*(25*(asInt(z%26+-8 != i[9]))+1) + (i[9]+9)*asInt(z%26+-8 != i[9])
+	z = z/1*(25*(asInt(z%26+15 != i[10]))+1) + (i[10]+2)*asInt(z%26+15 != i[10])
+	z = z/26*(25*(asInt(z%26+-8 != i[11]))+1) + (i[11]+3)*asInt(z%26+-8 != i[11])
+	z = z/26*(25*(asInt(z%26+0 != i[12]))+1) + (i[12]+3)*asInt(z%26+0 != i[12])
+	z = z/26*(25*(asInt(z%26+-4 != i[13]))+1) + (i[13]+11)*asInt(z%26+-4 != i[13])
+	return z
+}
+
+func Bruteforce() {
+	//for nthread := 0; nthread < 1; nthread++ {
+	//	go func() {
+	inps := []int{1, 1, 9, 9, 6, 2, 3, 1, 1, 1, 7, 1, 8, 9}
+	//inps := []int{1, 1, 8, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5}
+	for i := 0; ; i++ {
+		PartialRandomizeInput(inps[5:])
+		z := F13(inps)
+		if z == 0 {
+			fmt.Println("z", z, "inps", inps)
+
+			inps64 := make([]int64, len(inps))
+			for d := 0; d < len(inps64); d++ {
+				inps64[d] = int64(inps[d])
+			}
+			input10 := mathutil.FromDigits(inps64[0:], 10)
+			input26 := mathutil.ToDigitsInt(input10, 26)
+			fmt.Println("base 26", input26)
+		}
+
+	}
+	//	}()
+	//}
+	//time.Sleep(1000 * time.Second)
+}
+
+type State struct {
+	K, Z int
+}
+
+func BFS(max bool) int {
+	whatever := 0.0
+	visited := map[State]bool{}
+	Q := priorityqueue.New[State]()
+	Q.Push(State{0, 0}, whatever)
+	prev := map[State]State{}
+	digit := map[State]int{}
+
+	for Q.Len() > 0 {
+		nodeCurr := Q.Pop()
+		visited[nodeCurr] = true
+		k := nodeCurr.K
+		z := nodeCurr.Z
+		if k == 14 {
+			if z == 0 {
+				digits := []int{}
+				for nodeCurr != (State{0, 0}) {
+					digits = append(digits, digit[nodeCurr])
+					nodeCurr = prev[nodeCurr]
+				}
+				sliceutil.ReverseInt(digits)
+				fmt.Println(mathutil.FromDigitsInt(digits, 10))
+				return mathutil.FromDigitsInt(digits, 10)
+			}
+			continue
+		}
+		for i := 1; i <= 9; i++ {
+			if k == 0 && i != 1 {
+				continue
+			}
+			if k == 1 && (i > 2) {
+				continue
+			}
+			zNext := f(z, i, k)
+			nodeNext := State{k + 1, zNext}
+			if digit[nodeNext] == 0 {
+				prev[nodeNext] = nodeCurr
+				digit[nodeNext] = i
+			} else if max && i > digit[nodeNext] {
+				prev[nodeNext] = nodeCurr
+				digit[nodeNext] = i
+			} else if !max && i < digit[nodeNext] {
+				prev[nodeNext] = nodeCurr
+				digit[nodeNext] = i
+			}
+			if !visited[nodeNext] {
+				Q.Push(nodeNext, -float64(zNext))
+			}
+		}
+	}
+	return -1
+}
+
+func main() {
+	//computeZ1()
+	BFS(true)
+	BFS(false)
+	//computeZ1()
+	//Bruteforce()
+	//FirstAlgo()
+	//Codegen(a, b, c, nil)
+	// CompareModules(allInstrs)
+	//f, F := GetModulesWithMemoization(allInstrs)
+	//FirstAlgo(f, F)
+}
+
+// 11841231117189 part 2
+// 12996997829399 part 1
