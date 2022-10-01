@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/roessland/gopkg/mathutil"
-	"github.com/roessland/gopkg/priorityqueue"
 	"github.com/roessland/gopkg/sliceutil"
 	"io"
 	"log"
@@ -508,16 +507,20 @@ type State struct {
 	K, Z int
 }
 
-func BFS(max bool) int {
-	whatever := 0.0
+func GraphSearch(max bool) int {
 	visited := map[State]bool{}
-	Q := priorityqueue.New[State]()
-	Q.Push(State{0, 0}, whatever)
+	S := map[State]struct{}{}
+	S[State{0, 0}] = struct{}{}
 	prev := map[State]State{}
 	digit := map[State]int{}
 
-	for Q.Len() > 0 {
-		nodeCurr := Q.Pop()
+	for len(S) > 0 {
+		var nodeCurr State
+		for s := range S {
+			nodeCurr = s
+			break
+		}
+		delete(S, nodeCurr)
 		visited[nodeCurr] = true
 		k := nodeCurr.K
 		z := nodeCurr.Z
@@ -535,12 +538,6 @@ func BFS(max bool) int {
 			continue
 		}
 		for i := 1; i <= 9; i++ {
-			if k == 0 && i != 1 {
-				continue
-			}
-			if k == 1 && (i > 2) {
-				continue
-			}
 			zNext := f(z, i, k)
 			nodeNext := State{k + 1, zNext}
 			if digit[nodeNext] == 0 {
@@ -554,7 +551,7 @@ func BFS(max bool) int {
 				digit[nodeNext] = i
 			}
 			if !visited[nodeNext] {
-				Q.Push(nodeNext, -float64(zNext))
+				S[nodeNext] = struct{}{}
 			}
 		}
 	}
@@ -563,8 +560,8 @@ func BFS(max bool) int {
 
 func main() {
 	//computeZ1()
-	BFS(true)
-	BFS(false)
+	GraphSearch(true)
+	GraphSearch(false)
 	//computeZ1()
 	//Bruteforce()
 	//FirstAlgo()
@@ -574,5 +571,5 @@ func main() {
 	//FirstAlgo(f, F)
 }
 
-// 11841231117189 part 2
 // 12996997829399 part 1
+// 11841231117189 part 2
