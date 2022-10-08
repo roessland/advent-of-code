@@ -9,8 +9,10 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var a, b, c []int
@@ -507,12 +509,27 @@ type State struct {
 	K, Z int
 }
 
+func ComputePruningLimits() []int {
+	limits := make([]int, len(a)+1)
+	limits[13] = 26
+	for k := 12; k >= 0; k-- {
+		if a[k] == 26 {
+			limits[k] = limits[k+1]*26 + 26
+		} else {
+			limits[k] = limits[k+1] + 26
+		}
+	}
+	return limits
+}
+
 func GraphSearch(max bool) int {
+	limits := ComputePruningLimits()
 	visited := map[State]bool{}
 	S := map[State]struct{}{}
 	S[State{0, 0}] = struct{}{}
 	prev := map[State]State{}
 	digit := map[State]int{}
+	var results []int
 
 	for len(S) > 0 {
 		var nodeCurr State
@@ -522,8 +539,15 @@ func GraphSearch(max bool) int {
 		}
 		delete(S, nodeCurr)
 		visited[nodeCurr] = true
+
 		k := nodeCurr.K
 		z := nodeCurr.Z
+
+		// Pruning branches with too high / unrecoverable z value.
+		if z > limits[k] {
+			continue
+		}
+
 		if k == 14 {
 			if z == 0 {
 				digits := []int{}
@@ -532,43 +556,52 @@ func GraphSearch(max bool) int {
 					nodeCurr = prev[nodeCurr]
 				}
 				sliceutil.ReverseInt(digits)
-				fmt.Println(mathutil.FromDigitsInt(digits, 10))
-				return mathutil.FromDigitsInt(digits, 10)
+				results = append(results, mathutil.FromDigitsInt(digits, 10))
 			}
 			continue
 		}
 		for i := 1; i <= 9; i++ {
 			zNext := f(z, i, k)
 			nodeNext := State{k + 1, zNext}
+			switchedDigit := false
 			if digit[nodeNext] == 0 {
 				prev[nodeNext] = nodeCurr
 				digit[nodeNext] = i
-			} else if max && i > digit[nodeNext] {
+				switchedDigit = true
+			} else if max && i >= digit[nodeNext] {
 				prev[nodeNext] = nodeCurr
 				digit[nodeNext] = i
-			} else if !max && i < digit[nodeNext] {
+				switchedDigit = true
+			} else if !max && i <= digit[nodeNext] {
 				prev[nodeNext] = nodeCurr
 				digit[nodeNext] = i
+				switchedDigit = true
 			}
-			if !visited[nodeNext] {
+			if switchedDigit { //
 				S[nodeNext] = struct{}{}
 			}
 		}
 	}
-	return -1
+	sort.Ints(results)
+	if max {
+		return results[len(results)-1]
+	} else {
+		return results[0]
+	}
 }
 
 func main() {
-	//computeZ1()
-	GraphSearch(true)
-	GraphSearch(false)
-	//computeZ1()
-	//Bruteforce()
-	//FirstAlgo()
-	//Codegen(a, b, c, nil)
-	// CompareModules(allInstrs)
-	//f, F := GetModulesWithMemoization(allInstrs)
-	//FirstAlgo(f, F)
+	var t0 time.Time
+
+	t0 = time.Now()
+	fmt.Print("Part 1: ")
+	a := GraphSearch(true)
+	fmt.Println(a == 12996997829399, time.Since(t0))
+
+	t0 = time.Now()
+	fmt.Print("Part 2: ")
+	b := GraphSearch(false)
+	fmt.Println(b == 11841231117189, time.Since(t0))
 }
 
 // 12996997829399 part 1
