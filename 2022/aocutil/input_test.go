@@ -1,7 +1,7 @@
 package aocutil_test
 
 import (
-	"github.com/roessland/advent-of-code/2021/aocutil"
+	"github.com/roessland/advent-of-code/2022/aocutil"
 	"testing"
 )
 import "github.com/stretchr/testify/require"
