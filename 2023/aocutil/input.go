@@ -10,7 +10,14 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-// on x=-69723..-64530,y=22399..28572,z=-47850..-23758
+// Atoi wraps strconv.Atoi and panics on error.
+func Atoi(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		panic(err)
+	}
+	return n
+}
 
 func GetIntsInString(line string) []int {
 	return GetNumsInString[int](line)
@@ -39,4 +46,13 @@ func ReadFile(filename string) string {
 		log.Fatal(err)
 	}
 	return strings.TrimSuffix(string(f), "\n")
+}
+
+// ReadLines wraps strings.Split(string(os.ReadFile)) and panics on error.
+func ReadLines(filename string) []string {
+	f, err := os.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return strings.Split(strings.TrimSuffix(string(f), "\n"), "\n")
 }
