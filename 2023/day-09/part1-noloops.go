@@ -12,14 +12,20 @@ func main() {
 		return parseLine(str)
 	})
 
-	extrapolatedVals := mapIntsToInt(histories, func(hist []int) int {
-		fmt.Println("Mapping history", hist)
+	nextVals := mapIntsToInt(histories, func(hist []int) int {
 		return getNextValue(hist)
 	})
 
-	sum := reduce(extrapolatedVals, add)
+	prevVals := mapIntsToInt(histories, func(hist []int) int {
+		return getPrevValue(hist)
+	})
 
-	fmt.Println("Sum:", sum)
+	nextValsSum := reduce(nextVals, add)
+
+	prevValsSum := reduce(prevVals, add)
+
+	fmt.Println("Part 1:", nextValsSum)
+	fmt.Println("Part 2:", prevValsSum)
 }
 
 func reduce(arr []int, f func(a, b int) int) int {
@@ -35,6 +41,13 @@ func reduce(arr []int, f func(a, b int) int) int {
 
 func add(a, b int) int {
 	return a + b
+}
+
+func getPrevValue(history []int) int {
+	if areAllZero(history) {
+		return 0
+	}
+	return history[0] - getPrevValue(getDiffs(history))
 }
 
 func getNextValue(history []int) int {
