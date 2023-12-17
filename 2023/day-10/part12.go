@@ -16,6 +16,7 @@ func ReadInput() Grid {
 func main() {
 	input := ReadInput()
 	part1(input)
+	part2(input)
 }
 
 type Pos struct {
@@ -55,25 +56,29 @@ func (g Grid) FindStartPos() Pos {
 	return Pos{x, 0}
 }
 
-func (g Grid) Neighbors(p Pos) []Pos {
+func (g Grid) ConnectedNeighbors(p Pos) []Pos {
 	neighbors := []Pos{}
 	n := p.North()
-	if strings.IndexByte("|7FS", g.At(n)) != -1 {
+	if strings.IndexByte("|7FS", g.At(n)) != -1 &&
+		strings.IndexByte("|LJS", g.At(p)) != -1 {
 		neighbors = append(neighbors, n)
 	}
 
 	s := p.South()
-	if strings.IndexByte("|LJS", g.At(s)) != -1 {
+	if strings.IndexByte("|LJS", g.At(s)) != -1 &&
+		strings.IndexByte("|F7S", g.At(p)) != -1 {
 		neighbors = append(neighbors, s)
 	}
 
 	w := p.West()
-	if strings.IndexByte("-LFS", g.At(w)) != -1 {
+	if strings.IndexByte("-LFS", g.At(w)) != -1 &&
+		strings.IndexByte("-7JS", g.At(p)) != -1 {
 		neighbors = append(neighbors, w)
 	}
 
 	e := p.East()
-	if strings.IndexByte("-7JS", g.At(e)) != -1 {
+	if strings.IndexByte("-7JS", g.At(e)) != -1 &&
+		strings.IndexByte("-FLS", g.At(p)) != -1 {
 		neighbors = append(neighbors, e)
 	}
 
@@ -82,11 +87,11 @@ func (g Grid) Neighbors(p Pos) []Pos {
 
 func part1(g Grid) {
 	posS := g.FindStartPos()
-	ans := MaxLoopDist(g, posS)
+	ans, _ := MaxLoopDist(g, posS)
 	fmt.Println("max loop dist:", ans)
 }
 
-func MaxLoopDist(g Grid, startPos Pos) int {
+func MaxLoopDist(g Grid, startPos Pos) (int, map[Pos]int) {
 	dists := map[Pos]int{startPos: 0}
 	todo := map[Pos]struct{}{startPos: {}}
 	var bfs func()
@@ -96,7 +101,7 @@ func MaxLoopDist(g Grid, startPos Pos) int {
 		delete(todo, p)
 
 		// Add all unvisited neighbors to todo
-		neighbors := g.Neighbors(p)
+		neighbors := g.ConnectedNeighbors(p)
 		forEach(neighbors, func(n Pos) {
 			if _, ok := dists[n]; !ok {
 				dists[n] = dists[p] + 1
@@ -110,7 +115,127 @@ func MaxLoopDist(g Grid, startPos Pos) int {
 		}
 	}
 	bfs()
-	return maxVal(dists)
+	return maxVal(dists), dists
+}
+
+func part2(g Grid) {
+	p0 := g.FindStartPos()
+	p1 := g.ConnectedNeighbors(p0)[0]
+	ingress := map[Pos]byte{}
+	egress := map[Pos]byte{}
+	var dfs func(p Pos, prev Pos)
+	dfs = func(p, prev Pos) {
+		// If already visited, done
+		if _, ok := ingress[p]; ok {
+			return
+		}
+
+		// Visit this one
+		dir := Pos{p.X - prev.X, p.Y - prev.Y}
+		switch dir {
+		case Pos{0, -1}:
+			ingress[p] = 'v'
+			egress[prev] = '^'
+		case Pos{0, 1}:
+			ingress[p] = '^'
+			egress[prev] = 'v'
+		case Pos{-1, 0}:
+			ingress[p] = '>'
+			egress[prev] = '<'
+		case Pos{1, 0}:
+			ingress[p] = '<'
+			egress[prev] = '>'
+		}
+
+		// Find next
+		var next Pos
+		neighbors := g.ConnectedNeighbors(p)
+		if neighbors[0] == prev {
+			next = neighbors[1]
+		} else {
+			next = neighbors[0]
+		}
+
+		// Visit next
+		dfs(next, p)
+	}
+	dfs(p1, p0)
+
+	isRightOf := map[Pos]bool{}
+	for {
+		initialLen := len(isRightOf)
+		for y := 0; y < len(g); y++ {
+			for x := 0; x < len(g[y]); x++ {
+				p := Pos{x, y}
+				// Skip loop tiles
+				if _, isLoop := egress[p]; isLoop {
+					continue
+				}
+
+				// ingress      egress
+				//   <     J     <
+				// v o ^  |.L  v   ^
+				//   >     -     >
+
+				//
+				// o ^ .
+				//
+				e := p.East()
+				if egress[e] == '^' || ingress[e] == 'v' {
+					isRightOf[p] = true
+				}
+
+				// . v o
+				w := p.West()
+				if egress[w] == 'v' || ingress[w] == '^' {
+					isRightOf[p] = true
+				}
+
+				// .
+				// <
+				// o
+				n := p.North()
+				if egress[n] == '<' || ingress[n] == '>' {
+					isRightOf[p] = true
+				}
+
+				// o
+				// <
+				// .
+				s := p.South()
+				if egress[s] == '>' || ingress[s] == '<' {
+					isRightOf[p] = true
+				}
+
+				// Flood fill. If a neighbor is on the left, this tile is on the left.
+				if isRightOf[e] || isRightOf[w] || isRightOf[n] || isRightOf[s] {
+					isRightOf[p] = true
+				}
+			}
+		}
+		// Flood fill is done
+		if len(isRightOf) == initialLen {
+			break
+		}
+	}
+
+	fmt.Println("\n\nIngress:")
+	for y := 0; y < len(g); y++ {
+		fmt.Println()
+		for x := 0; x < len(g[y]); x++ {
+			p := Pos{x, y}
+			if _, ok := ingress[p]; ok {
+				fmt.Printf("%c", ingress[p])
+				// fmt.Printf("%c", g.At(p))
+			} else if isRightOf[p] {
+				fmt.Printf("O")
+			} else {
+				fmt.Printf("%c", g.At(p))
+			}
+		}
+	}
+
+	fmt.Println("\n", len(isRightOf))
 }
 
 func argMin[T comparable](xs []T, f func(T) int) T {
@@ -148,7 +273,6 @@ func maxVal[T comparable](m map[T]int) int {
 
 func vals[T comparable](m map[T]int) []int {
 	vs := []int{}
-	// how do I functional, without a looo?
 	for _, v := range m {
 		vs = append(vs, v)
 	}
