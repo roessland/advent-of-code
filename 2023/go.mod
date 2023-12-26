@@ -2,7 +2,10 @@ module github.com/roessland/advent-of-code/2023
 
 go 1.21.1
 
-require github.com/davecgh/go-spew v1.1.1
+require (
+	github.com/davecgh/go-spew v1.1.1
+	golang.org/x/exp v0.0.0-20231226003508-02704c960a9b
+)
 
 require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
