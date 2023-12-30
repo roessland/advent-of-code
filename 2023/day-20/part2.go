@@ -3,11 +3,36 @@ package main
 import (
 	"cmp"
 	"fmt"
+	"os"
 	"slices"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/roessland/advent-of-code/2023/aocutil"
+	"github.com/roessland/gopkg/mathutil/crt"
 )
+
+var buttonPressed int
+
+/*
+&cs -> rx
+cs must become hhhh.
+
+- &cs
+  - &kh
+    - &sk
+      -
+  - &lz
+    - &sd
+      -
+  - &tg
+    - &pl
+      -
+  - &hn
+    - &zv
+      -
+*/
 
 func debugSend(src, dst string, pulse Pulse) {
 	return
@@ -25,6 +50,50 @@ func debugReceive(src, dst string, pulse Pulse) {
 	} else {
 		fmt.Printf("%s <-high- %s\n", src, dst)
 	}
+}
+
+func printStateRow(order []string, modules map[string]Module) {
+	widths := make(map[string]int)
+	states := make(map[string]string)
+
+	// Get state and column width
+	for _, name := range order {
+		states[name], widths[name] = modules[name].State()
+	}
+
+	// Print state
+	for _, name := range order {
+		width := widths[name]
+		fmt.Printf("| %"+strconv.Itoa(width)+"s ", states[name])
+	}
+	fmt.Println()
+}
+
+func printStateHeaders(order []string, modules map[string]Module) {
+	widths := make(map[string]int)
+	states := make(map[string]string)
+
+	// Get state and column width
+	for _, name := range order {
+		states[name], widths[name] = modules[name].State()
+	}
+
+	// Print table headers
+	for _, name := range order {
+		if name == "broadcaster" {
+			name = "bcr"
+		}
+		if name == "button" {
+			name = "btn"
+		}
+		width := widths[name]
+		fmt.Printf("| %"+strconv.Itoa(width)+"s ", name)
+	}
+	fmt.Println()
+	for _, name := range order {
+		fmt.Print(strings.Repeat("-", widths[name]+3))
+	}
+	fmt.Println()
 }
 
 func main() {
@@ -52,13 +121,14 @@ func main() {
 		modules[moduleName].Init()
 	}
 
+	printStateHeaders(input.ModuleNames, modules)
 	numLo, numHi := 0, 0
-	fmt.Println("max pr len")
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 1000000000; i++ {
 		pq = append(pq, QueueItem{
 			Process: func() (int, int) { return modules["button"].Process(Lo, "main") },
 			PulseID: GetPulseID(),
 		})
+		buttonPressed++
 		for len(pq) > 0 {
 			qi := pq[0]
 			pq = pq[1:]
@@ -66,6 +136,13 @@ func main() {
 			numLo += l
 			numHi += h
 			FixPQ()
+		}
+
+		if i%10000000 == 0 {
+			printStateHeaders(input.ModuleNames, modules)
+		}
+		if i%1000000 == 0 {
+			printStateRow(input.ModuleNames, modules)
 		}
 	}
 
@@ -75,7 +152,8 @@ func main() {
 }
 
 type State struct {
-	Modules map[string]BaseModule
+	ModuleNames []string
+	Modules     map[string]BaseModule
 }
 
 type Pulse byte
@@ -89,6 +167,7 @@ type Module interface {
 	Init()
 	Process(pulse Pulse, from string) (numLo, numHi int)
 	Dsts() []string
+	State() (string, int)
 }
 
 type BaseModule struct {
@@ -101,34 +180,6 @@ type BaseModule struct {
 
 func (m *BaseModule) Dsts() []string {
 	return m.dsts
-}
-
-type ButtonModule struct {
-	BaseModule
-}
-
-func (m *ButtonModule) Init() {
-}
-
-func (m *ButtonModule) Process(pulse Pulse, from string) (numLo, numHi int) {
-	return Emit(m.BaseModule, pulse)
-}
-
-var _ Module = &ButtonModule{}
-
-type BroadcastModule struct {
-	BaseModule
-}
-
-// Init implements Module.
-func (*BroadcastModule) Init() {
-}
-
-var _ Module = &BroadcastModule{}
-
-func (m *BroadcastModule) Process(pulse Pulse, from string) (numLo, numHi int) {
-	debugReceive(m.Name, "flipflop", pulse)
-	return Emit(m.BaseModule, pulse)
 }
 
 type QueueItem struct {
@@ -155,6 +206,29 @@ func FixPQ() {
 }
 
 func Emit(m BaseModule, pulse Pulse) (numLo, numHi int) {
+	if m.Name == "hn" && pulse == Hi {
+		fmt.Println("hn emitted hi", buttonPressed, buttonPressed%4013) // 409326
+	}
+	if m.Name == "lz" && pulse == Hi {
+		fmt.Println("lz emitted hi", buttonPressed, buttonPressed%3917) // 411285
+	}
+	if m.Name == "kh" && pulse == Hi {
+		fmt.Println("kh emitted hi", buttonPressed, buttonPressed%3889) // 408345
+	}
+	if m.Name == "tg" && pulse == Hi {
+		fmt.Println("tg emitted hi", buttonPressed, buttonPressed%3769) // 414590
+	}
+
+	// x = 409326 mod 4013
+	// x = 411285 mod 3917
+	// x = 408345 mod 3889
+	// x = 414590 mod 3769
+	x, N := crt.CRTCoerce([]int64{409326, 411285, 408345, 414590}, []int64{4013, 3917, 3889, 3769})
+	fmt.Println("Part 2:", x+N)
+
+	fmt.Println("Part 2 (without CRT): ", 4013*3917*3889*3769)
+	os.Exit(0)
+
 	pulseID := GetPulseID()
 	for _, dstName := range m.dsts {
 		dstName := dstName
@@ -182,13 +256,59 @@ func Emit(m BaseModule, pulse Pulse) (numLo, numHi int) {
 	return numLo, numHi
 }
 
+type ButtonModule struct {
+	BaseModule
+}
+
+func (m *ButtonModule) Init() {
+}
+
+func (m *ButtonModule) Process(pulse Pulse, from string) (numLo, numHi int) {
+	return Emit(m.BaseModule, pulse)
+}
+
+func (m *ButtonModule) State() (string, int) {
+	return "", 3
+}
+
+var _ Module = &ButtonModule{}
+
+type BroadcastModule struct {
+	BaseModule
+}
+
+// Init implements Module.
+func (*BroadcastModule) Init() {
+}
+
+func (m *BroadcastModule) State() (string, int) {
+	return "", 3
+}
+
+var _ Module = &BroadcastModule{}
+
+func (m *BroadcastModule) Process(pulse Pulse, from string) (numLo, numHi int) {
+	debugReceive(m.Name, "flipflop", pulse)
+	return Emit(m.BaseModule, pulse)
+}
+
 type FlipFlopModule struct {
 	BaseModule
 	On bool
 }
 
+var _ Module = &FlipFlopModule{}
+
 func (m *FlipFlopModule) Init() {
 	m.On = false
+}
+
+func (m *FlipFlopModule) State() (string, int) {
+	if m.On {
+		return "on", 3
+	} else {
+		return "off", 3
+	}
 }
 
 func (m *FlipFlopModule) Process(pulse Pulse, from string) (numLo, numHi int) {
@@ -215,20 +335,47 @@ type OutputModule struct {
 func (m *OutputModule) Init() {
 }
 
+func (m *OutputModule) State() (string, int) {
+	return "", 3
+}
+
 func (m *OutputModule) Process(pulse Pulse, from string) (numLo, numHi int) {
 	return 0, 0
 }
 
+var _ Module = &OutputModule{}
+
 type ConjunctionModule struct {
 	BaseModule
-	remembered map[string]Pulse
+	remembered     map[string]Pulse
+	rememberedSrcs []string
 }
+
+var _ Module = &ConjunctionModule{}
 
 func (m *ConjunctionModule) Init() {
 	m.remembered = make(map[string]Pulse)
 	for inputName := range m.Inputs {
 		m.remembered[inputName] = Lo
+		m.rememberedSrcs = append(m.rememberedSrcs, inputName)
 	}
+	sort.Strings(m.rememberedSrcs)
+}
+
+func (m *ConjunctionModule) State() (string, int) {
+	s := make([]byte, len(m.rememberedSrcs))
+	for i, src := range m.rememberedSrcs {
+		if m.remembered[src] == Hi {
+			s[i] = 'h'
+		} else {
+			s[i] = 'l'
+		}
+	}
+	width := len(m.rememberedSrcs)
+	if width < 3 {
+		width = 3
+	}
+	return string(s), width
 }
 
 func (m *ConjunctionModule) remembersAllHi() bool {
@@ -265,6 +412,7 @@ func ReadInput() *State {
 
 		dsts := strings.Split(parts[1], ", ")
 
+		s.ModuleNames = append(s.ModuleNames, name)
 		if name == "broadcaster" {
 			s.Modules[name] = BaseModule{
 				Name:   name,
@@ -292,6 +440,7 @@ func ReadInput() *State {
 	}
 
 	// Step 2: Add a button
+	s.ModuleNames = append(s.ModuleNames, "button")
 	s.Modules["button"] = BaseModule{
 		Name:   "button",
 		Type:   "button",
@@ -299,10 +448,11 @@ func ReadInput() *State {
 		dsts:   []string{"broadcaster"},
 	}
 
-	// Step 3: Add inputs to each module
+	// Step 3: Add inputs to each module.
 	for moduleName, module := range s.Modules {
 		for _, dstName := range module.dsts {
 			if s.Modules[dstName].Name == "" {
+				s.ModuleNames = append(s.ModuleNames, dstName)
 				s.Modules[dstName] = BaseModule{
 					Name:   dstName,
 					Type:   "output",
