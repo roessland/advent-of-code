@@ -27,6 +27,7 @@ require (
 )
 
 require (
+	github.com/charmbracelet/bubbles v0.17.1
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/roessland/gopkg v1.7.0 // indirect
