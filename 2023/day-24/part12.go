@@ -7,8 +7,7 @@ import (
 )
 
 func main() {
-	hs := ReadInput()
-	fmt.Println(hs)
+	Part1()
 }
 
 type Hailstone struct {
@@ -52,15 +51,43 @@ func Part1() {
 	areaMax := 27
 	count := 0
 
-	for _, hA := range hs {
-		for _, hB := range hs {
-			p, intersects := SegmentSegmentIntersection(hA, hB)
-			if intersects && p.X >= areaMin && p.X <= areaMax && p.Y >= areaMin && p.Y <= areaMax {
-				count++
+	for iA, hA := range hs {
+		for iB, hB := range hs {
+			if iA == iB {
+				continue
 			}
+			p, intersects := SegmentSegmentIntersection(hA, hB)
+			fmt.Println("\tIntersects:", intersects)
+			fmt.Println("\tIntersection:", float64(p.X)/float64(p.D), float64(p.Y)/float64(p.D))
+			fmt.Println("Checking", hA, hB, p, intersects)
+			if !(intersects && p.X >= areaMin*p.D && p.X <= areaMax*p.D && p.Y >= areaMin*p.D && p.Y <= areaMax*p.D) {
+				fmt.Println("\tIntersects outside area")
+				continue
+			}
+			if !IsFuture(hA, p) {
+				fmt.Println("\tIntersection is not in the future")
+				continue
+			}
+
+			fmt.Println("WILL CROSS INSIDE TEST AREA")
+			count++
 		}
 	}
 	fmt.Println("Part 1:", count)
+}
+
+func IsFuture(hs Hailstone, coord FracVec3) bool {
+	// x0 + t * x' = x
+	// => t = (x - x0) / x'
+	// sign(t) = sign(x - x0) * sign(x')
+	return Sign(coord.X-hs.Pos.X*coord.D) == Sign(hs.Vel.X)
+}
+
+func Sign(x int) int {
+	if x < 0 {
+		return -1
+	}
+	return 1
 }
 
 func SegmentSegmentIntersection(A, B Hailstone) (p FracVec3, intersects bool) {
@@ -144,7 +171,6 @@ func LineLineIntersection(hA, hB Hailstone) (p FracVec3, intersects bool) {
 	//
 	//
 	//
-	// Solve A'A w = A'b for w
 	x1 := hA.Pos.X
 	y1 := hA.Pos.Y
 
@@ -164,6 +190,9 @@ func LineLineIntersection(hA, hB Hailstone) (p FracVec3, intersects bool) {
 	Px := (x1*y2-y1*x2)*(x3-x4) - (x1-x2)*(x3*y4-y3*x4)
 	Py := (x1*y2-y1*x2)*(y3-y4) - (y1-y2)*(x3*y4-y3*x4)
 
+	// TODO: In 3D, solve the system of equations instead:
+	// Solve A'A w = A'b for w
+
 	return FracVec3{Px, Py, 0, PDenom}, true
 }
 
@@ -172,18 +201,20 @@ type Mat2 struct {
 	a21, a22 int
 }
 
-type Mat3 struct {
+type Mat33 struct {
 	a11, a12, a13 int
 	a21, a22, a23 int
 	a31, a32, a33 int
 }
 
-func Det(m Mat3) int {
+func Det(m Mat33) int {
 	a11, a12, a13, a21, a22, a23, a31, a32, a33 := m.a11, m.a12, m.a13, m.a21, m.a22, m.a23, m.a31, m.a32, m.a33
 	return a11*(a22*a33-a23*a32) - a12*(a21*a33-a23*a31) + a13*(a21*a32-a22*a31)
 }
 
-func Solve(A Mat3, b IntVec3) *FracVec3 {
+// SolveSystem solves the system Ax=b for x, where A is a 3x3 matrix, b is a
+// 3x1 vector, and x is a 3x1 vector, using Cramer's rule.
+func SolveSystem(A Mat33, b IntVec3) *FracVec3 {
 	D := Det(A)
 	if D == 0 {
 		return nil
@@ -209,12 +240,12 @@ func Solve(A Mat3, b IntVec3) *FracVec3 {
 	return &FracVec3{Dx, Dy, Dz, D}
 }
 
-func T(A Mat3) Mat3 {
-	return Mat3{A.a11, A.a21, A.a31, A.a12, A.a22, A.a32, A.a13, A.a23, A.a33}
+func T(A Mat33) Mat33 {
+	return Mat33{A.a11, A.a21, A.a31, A.a12, A.a22, A.a32, A.a13, A.a23, A.a33}
 }
 
-func MatMatMul(A, B Mat3) Mat3 {
-	return Mat3{
+func MatMatMul(A, B Mat33) Mat33 {
+	return Mat33{
 		A.a11*B.a11 + A.a12*B.a21 + A.a13*B.a31,
 		A.a11*B.a12 + A.a12*B.a22 + A.a13*B.a32,
 		A.a11*B.a13 + A.a12*B.a23 + A.a13*B.a33,
