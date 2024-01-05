@@ -48,7 +48,7 @@ func TestLineLineIntersection2D(t *testing.T) {
 			"north arrow",
 			// North arrow
 			0, 0, 0, 1, 1, 0,
-			1, 1, 0, -1, 1, 0,
+			1, 0, 0, -1, 1, 0,
 			0.5, 0.5,
 			true,
 		},
@@ -189,5 +189,17 @@ func TestLineLineIntersectionEquations(t *testing.T) {
 
 	// test next matrix form
 	{
+		A := Mat2{
+			big.NewRat(0, 1), big.NewRat(-1, 1),
+			big.NewRat(-1, 1), big.NewRat(-1, 1),
+		}
+		b := BigRatVec2{
+			big.NewRat(int64(xA*yAv-yA*xAv), 1),
+			big.NewRat(int64(xB*yBv-yB*xBv), 1),
+		}
+
+		sol, ok := A.Solve(b)
+		require.True(t, ok)
+		fmt.Println(sol)
 	}
 }

@@ -46,6 +46,9 @@ type BigRatVec2 struct {
 }
 
 func (u BigRatVec2) ToFloatVec2() FloatVec2 {
+	if u.X == nil || u.Y == nil {
+		panic("tofloatvec2 is nil")
+	}
 	x, _ := u.X.Float64()
 	y, _ := u.Y.Float64()
 	return FloatVec2{x, y}
@@ -141,10 +144,10 @@ func Part1() {
 		hs[i].Vel.Z = big.NewRat(0, 1)
 	}
 
-	// areaMin := big.NewRat(200000000000000, 1)
-	// areaMax := big.NewRat(400000000000000, 1)
-	areaMin := big.NewRat(7, 1)
-	areaMax := big.NewRat(27, 1)
+	areaMin := big.NewRat(200000000000000, 1)
+	areaMax := big.NewRat(400000000000000, 1)
+	// areaMin := big.NewRat(7, 1)
+	// areaMax := big.NewRat(27, 1)
 	count := 0
 
 	for iA, hA := range hs {
@@ -155,7 +158,12 @@ func Part1() {
 			fmt.Println("Checking", hA.Pos, hB.Pos)
 			p, intersects := SegmentSegmentIntersection2D(hA, hB)
 			fmt.Println("\tIntersects:", intersects)
-			fmt.Println("\tIntersection:", p.ToFloatVec2())
+			if !intersects {
+				continue
+			}
+			if intersects {
+				fmt.Println("\tIntersection:", p.ToFloatVec2())
+			}
 			fmt.Println("Checking", hA, hB, p, intersects)
 			if !InsideArea2D(p, areaMin, areaMax) {
 				fmt.Println("\tIntersection is outside area")
@@ -221,6 +229,7 @@ func IsFuture2D(hs Hailstone, coord BigRatVec2) bool {
 	// sign(t) = sign(x - x0) == sign(x')
 	dx := new(big.Rat).Set(hs.Pos.X)
 	dx.Sub(dx, coord.X)
+	dx.Neg(dx)
 
 	if dx.Sign() == 0 {
 		panic("dx is zero")
@@ -271,56 +280,66 @@ func LineLineIntersection2D(hA, hB Hailstone) (p BigRatVec2, intersects bool) {
 	// Convert to matrix form:
 	//  (x - xA) * yA' - (y - yA) * xA' = 0
 	//  (x - xB) * yB' - (y - yB) * xB' = 0
-
 	//
-	//  (x - xA) * yA' - (y - yA) * xA' = 0
-	//
-	//  x yA' - xA yA' - y xA' + yA xA' = 0
-	//  x yA' - xA yA' - y xA' + yA xA' = 0
-	//  x yB' - xB yB' - y xB' + yB xB' = 0
+	//  x yA' - xA yA' - y xA' - yA xA' = 0
+	//  x yB' - xB yB' + y xB' - yB xB' = 0
 	//
 	//
-	//  x yA' - y xA = xA yA' - yA xA'
-	//  x yB' - y xB = xB yB' - yB xB'
+	//  x yA' + y xA' = xA yA' - yA xA'
+	//  x yB' + y xB' = xB yB' - yB xB'
 	//
-	//  [ yA'  -xA ]     [ x ]     [ xA yA' - yA xA' ]
-	//  [ yB'  -xB ]  @  [ y ]  =  [ xB yB' - yB xB' ]
+	//  [ yA'  -xA' ]     [ x ]     [ xA yA' - yA xA' ]
+	//  [ yB'  -xB' ]  @  [ y ]  =  [ xB yB' - yB xB' ]
 	//
 	// Solve manually:
-	//  x yA' = xA yA' - yA xA' + y xA'
-	//  x = (xA yA' - yA xA') / yA'
-	//  y = (xB yB' - yB xB') / xB'
-	//
-	//  For example: (expect 0.5, 0.5)
-	//  xA = 0, yA = 1, xA' = 1, yA' = -1
-	//  xB = 0, yB = 0, xB' = 1, yB' = 1
-	//
-	//  [ -1  0 ]     [ x ]     [ 19 ]
-	//  [ 1  0 ]  @  [ y ]  =  [ 22 ]
-	//
 	//
 	//
 	//
 	a11 := hA.Vel.Y
-	a12 := new(big.Rat).Neg(hA.Pos.X)
+	a12 := new(big.Rat).Neg(hA.Vel.X)
 	a21 := hB.Vel.Y
-	a22 := new(big.Rat).Neg(hB.Pos.X)
+	a22 := new(big.Rat).Neg(hB.Vel.X)
 
 	A := Mat2{
 		a11, a12,
 		a21, a22,
 	}
 
+	//  [ xA yA' - yA xA' ]
+	//  [ xB yB' - yB xB' ]
+	b1 := new(big.Rat)
+	b1.Add(b1, new(big.Rat).Mul(hA.Pos.X, hA.Vel.Y))
+	b1.Sub(b1, new(big.Rat).Mul(hA.Pos.Y, hA.Vel.X))
+	b2 := new(big.Rat)
+	b2.Add(b2, new(big.Rat).Mul(hB.Pos.X, hB.Vel.Y))
+	b2.Sub(b2, new(big.Rat).Mul(hB.Pos.Y, hB.Vel.X))
+	b := BigRatVec2{X: b1, Y: b2}
+
+	D := A.Det()
+
+	if D.Num().Sign() == 0 {
+		return BigRatVec2{}, false
+	}
+
+	if b.X == nil || b.Y == nil {
+		panic("issa nil")
+	}
+	return A.Solve(b)
+}
+
+func (A Mat2) Solve(b BigRatVec2) (BigRatVec2, bool) {
+	a11, a12, a21, a22 := A.a11, A.a12, A.a21, A.a22
+
 	D := A.Det()
 
 	Dx := Mat2{
-		hA.Pos.X, a12,
-		hB.Pos.X, a22,
+		b.X, a12,
+		b.Y, a22,
 	}.Det()
 
 	Dy := Mat2{
-		a11, hA.Pos.X,
-		a21, hB.Pos.X,
+		a11, b.X,
+		a21, b.Y,
 	}.Det()
 
 	if D.Num().Sign() == 0 {
@@ -769,7 +788,7 @@ func (m Mat63) Atb(v BigRatVec6) BigRatVec3 {
 
 func ReadInput() []Hailstone {
 	hailstones := []Hailstone{}
-	for _, line := range aocutil.ReadLines("input-ex1.txt") {
+	for _, line := range aocutil.ReadLines("input.txt") {
 		nums := aocutil.GetIntsInString(line)
 		pos := NewBigRatVec3(nums[0], nums[1], nums[2])
 		vel := NewBigRatVec3(nums[3], nums[4], nums[5])
