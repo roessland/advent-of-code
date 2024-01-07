@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/roessland/advent-of-code/2023/aocutil"
+	"github.com/roessland/gopkg/bigmat"
 )
 
 func main() {
@@ -252,6 +253,14 @@ func Part2() {
 	ba := p2xv2.Sub(p1xv1)
 	bb := p3xv3.Sub(p1xv1)
 
+	b := bigmat.ZerosVec(6)
+	b.Set(0, ba.X)
+	b.Set(1, ba.Y)
+	b.Set(2, ba.Z)
+	b.Set(3, bb.X)
+	b.Set(4, bb.Y)
+	b.Set(5, bb.Z)
+
 	fmt.Printf("[")
 	fmt.Printf("%v %v %v %v %v %v\n", m11.a11.Num(), m11.a12.Num(), m11.a13.Num(), m12.a11.Num(), m12.a12.Num(), m12.a13.Num())
 	fmt.Printf("%v %v %v %v %v %v\n", m11.a21.Num(), m11.a22.Num(), m11.a23.Num(), m12.a21.Num(), m12.a22.Num(), m12.a23.Num())
@@ -265,6 +274,66 @@ func Part2() {
 	fmt.Printf("%v; %v; %v; %v; %v; %v\n", ba.X.Num(), ba.Y.Num(), ba.Z.Num(), bb.X.Num(), bb.Y.Num(), bb.Z.Num())
 
 	fmt.Printf("]")
+
+	A := bigmat.Zeros(6, 6)
+	A.Set(0, 0, m11.a11)
+	A.Set(0, 1, m11.a12)
+	A.Set(0, 2, m11.a13)
+	A.Set(0, 3, m12.a11)
+	A.Set(0, 4, m12.a12)
+	A.Set(0, 5, m12.a13)
+
+	A.Set(1, 0, m11.a21)
+	A.Set(1, 1, m11.a22)
+	A.Set(1, 2, m11.a23)
+	A.Set(1, 3, m12.a21)
+	A.Set(1, 4, m12.a22)
+	A.Set(1, 5, m12.a23)
+
+	A.Set(2, 0, m11.a31)
+	A.Set(2, 1, m11.a32)
+	A.Set(2, 2, m11.a33)
+	A.Set(2, 3, m12.a31)
+	A.Set(2, 4, m12.a32)
+	A.Set(2, 5, m12.a33)
+
+	A.Set(3, 0, m21.a11)
+	A.Set(3, 1, m21.a12)
+	A.Set(3, 2, m21.a13)
+	A.Set(3, 3, m22.a11)
+	A.Set(3, 4, m22.a12)
+	A.Set(3, 5, m22.a13)
+
+	A.Set(4, 0, m21.a21)
+	A.Set(4, 1, m21.a22)
+	A.Set(4, 2, m21.a23)
+	A.Set(4, 3, m22.a21)
+	A.Set(4, 4, m22.a22)
+	A.Set(4, 5, m22.a23)
+
+	A.Set(5, 0, m21.a31)
+	A.Set(5, 1, m21.a32)
+	A.Set(5, 2, m21.a33)
+	A.Set(5, 3, m22.a31)
+	A.Set(5, 4, m22.a32)
+	A.Set(5, 5, m22.a33)
+
+	L, U, p := A.PLUFact()
+	fmt.Println("L = ", L)
+	fmt.Println("U = ", U)
+	fmt.Println("p = ", p)
+	fmt.Println("b = ", b)
+
+	// Find z = L\b[p]
+	z := L.Forwardsub(b.Pivot(p))
+
+	// Compute Lz
+	Lz := L.MatMulVec(z)
+	fmt.Println("Lz", Lz)
+	fmt.Println("b[p]", b.Pivot(p))
+
+	x := A.Backslash(b)
+	fmt.Println(x)
 
 	// julia> M = convert.(Rational{BigInt}, M)
 	// 6×6 Matrix{Rational{BigInt}}:
