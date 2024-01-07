@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"os"
 
 	"github.com/roessland/advent-of-code/2023/aocutil"
 )
@@ -15,6 +16,18 @@ func main() {
 type Hailstone struct {
 	Pos BigRatVec3
 	Vel BigRatVec3
+}
+
+func (h Hailstone) ToFloat() FloatHailstone {
+	return FloatHailstone{
+		Pos: h.Pos.ToFloatVec3(),
+		Vel: h.Vel.ToFloatVec3(),
+	}
+}
+
+type FloatHailstone struct {
+	Pos FloatVec3
+	Vel FloatVec3
 }
 
 type FloatVec2 struct {
@@ -45,6 +58,24 @@ type BigRatVec2 struct {
 	X, Y *big.Rat
 }
 
+type BigRatVec3 struct {
+	X, Y, Z *big.Rat
+}
+
+type BigRatVec6 struct {
+	v1, v2, v3, v4, v5, v6 *big.Rat
+}
+
+type BigRatVecN []*big.Rat
+
+func NewBigRatVecN(n int) BigRatVecN {
+	v := make(BigRatVecN, n)
+	for i := range v {
+		v[i] = new(big.Rat)
+	}
+	return v
+}
+
 func (u BigRatVec2) ToFloatVec2() FloatVec2 {
 	if u.X == nil || u.Y == nil {
 		panic("tofloatvec2 is nil")
@@ -54,16 +85,15 @@ func (u BigRatVec2) ToFloatVec2() FloatVec2 {
 	return FloatVec2{x, y}
 }
 
-type BigRatVec3 struct {
-	X, Y, Z *big.Rat
-}
-
-type BigRatVec6 struct {
-	v1, v2, v3, v4, v5, v6 *big.Rat
-}
-
 func NewBigRatVec3(x, y, z int) BigRatVec3 {
 	return BigRatVec3{big.NewRat(int64(x), 1), big.NewRat(int64(y), 1), big.NewRat(int64(z), 1)}
+}
+
+func (u BigRatVec3) Add(v BigRatVec3) BigRatVec3 {
+	x := new(big.Rat).Add(u.X, v.X)
+	y := new(big.Rat).Add(u.Y, v.Y)
+	z := new(big.Rat).Add(u.Z, v.Z)
+	return BigRatVec3{x, y, z}
 }
 
 func (u BigRatVec3) Sub(v BigRatVec3) BigRatVec3 {
@@ -71,6 +101,14 @@ func (u BigRatVec3) Sub(v BigRatVec3) BigRatVec3 {
 	y := new(big.Rat).Sub(u.Y, v.Y)
 	z := new(big.Rat).Sub(u.Z, v.Z)
 	return BigRatVec3{x, y, z}
+}
+
+func (u BigRatVec3) Neg() BigRatVec3 {
+	return BigRatVec3{
+		new(big.Rat).Neg(u.X),
+		new(big.Rat).Neg(u.Y),
+		new(big.Rat).Neg(u.Z),
+	}
 }
 
 // Length2 returns the squared length of the vector.
@@ -138,7 +176,9 @@ func (u BigRatVec3) String() string {
 // vA = (xA', yA', zA')
 // vB = (xB', yB', zB')
 func Part1() {
-	hs := ReadInput()
+	Part2()
+	os.Exit(0)
+	hs := ReadInput("input.txt")
 	for i := range hs {
 		hs[i].Pos.Z = big.NewRat(0, 1)
 		hs[i].Vel.Z = big.NewRat(0, 1)
@@ -156,7 +196,7 @@ func Part1() {
 				continue
 			}
 			fmt.Println("Checking", hA.Pos, hB.Pos)
-			p, intersects := SegmentSegmentIntersection2D(hA, hB)
+			p, intersects := SegmentSegmentIntersection2D(hA.Pos.X, hA.Pos.Y, hA.Vel.X, hA.Vel.Y, hB.Pos.X, hB.Pos.Y, hB.Vel.X, hB.Vel.Y)
 			fmt.Println("\tIntersects:", intersects)
 			if !intersects {
 				continue
@@ -184,6 +224,148 @@ func Part1() {
 	}
 	fmt.Println("Part 1:", count)
 }
+
+func Part2() {
+	fmt.Println("--------")
+	hs := ReadInput("input.txt")
+
+	p1, v1 := hs[0].Pos, hs[0].Vel
+	p2, v2 := hs[1].Pos, hs[1].Vel
+	p3, v3 := hs[2].Pos, hs[2].Vel
+
+	// Build system. 6x6 matrix consisting of 4 3x3 matrices.
+	// [                     ] [ p0.x ]   [(-p1 x v1 + p2 x v2).x]
+	// [ [v1-v2]˟   [p2-p1]˟ ] [ p0.y ]   [(-p1 x v1 + p2 x v2).y]
+	// [                     ] [ p0.z ] = [(-p1 x v1 + p2 x v2).z]
+	// [                     ] [ v0.x ]   [(-p1 x v1 + p3 x v3).x]
+	// [ [v1-v3]˟  [p3-p1]˟  ] [ v0.y ]   [(-p1 x v1 + p3 x v3).y]
+	// [                     ] [ v0.z ]   [(-p1 x v1 + p3 x v3).z]
+	m11 := v1.Sub(v2).CrossMatrix()
+	m12 := p2.Sub(p1).CrossMatrix()
+	m21 := v1.Sub(v3).CrossMatrix()
+	m22 := p3.Sub(p1).CrossMatrix()
+
+	p1xv1 := p1.Cross(v1)
+	p2xv2 := p2.Cross(v2)
+	p3xv3 := p3.Cross(v3)
+
+	ba := p2xv2.Sub(p1xv1)
+	bb := p3xv3.Sub(p1xv1)
+
+	fmt.Printf("[")
+	fmt.Printf("%v %v %v %v %v %v\n", m11.a11.Num(), m11.a12.Num(), m11.a13.Num(), m12.a11.Num(), m12.a12.Num(), m12.a13.Num())
+	fmt.Printf("%v %v %v %v %v %v\n", m11.a21.Num(), m11.a22.Num(), m11.a23.Num(), m12.a21.Num(), m12.a22.Num(), m12.a23.Num())
+	fmt.Printf("%v %v %v %v %v %v\n", m11.a31.Num(), m11.a32.Num(), m11.a33.Num(), m12.a31.Num(), m12.a32.Num(), m12.a33.Num())
+	fmt.Printf("%v %v %v %v %v %v\n", m21.a11.Num(), m21.a12.Num(), m21.a13.Num(), m22.a11.Num(), m22.a12.Num(), m22.a13.Num())
+	fmt.Printf("%v %v %v %v %v %v\n", m21.a21.Num(), m21.a22.Num(), m21.a23.Num(), m22.a21.Num(), m22.a22.Num(), m22.a23.Num())
+	fmt.Printf("%v %v %v %v %v %v\n", m21.a31.Num(), m21.a32.Num(), m21.a33.Num(), m22.a31.Num(), m22.a32.Num(), m22.a33.Num())
+	fmt.Printf("]\n'")
+
+	fmt.Printf("[")
+	fmt.Printf("%v; %v; %v; %v; %v; %v\n", ba.X.Num(), ba.Y.Num(), ba.Z.Num(), bb.X.Num(), bb.Y.Num(), bb.Z.Num())
+
+	fmt.Printf("]")
+
+	// julia> M = convert.(Rational{BigInt}, M)
+	// 6×6 Matrix{Rational{BigInt}}:
+	//
+	//	   0//1  517//1   430//1                 0//1  200449925047571//1   119796160238546//1
+	//	-517//1    0//1  -120//1  -200449925047571//1                0//1   -50016083636040//1
+	//	-430//1  120//1     0//1  -119796160238546//1   50016083636040//1                 0//1
+	//	   0//1  264//1   217//1                 0//1    5508734318078//1   -43844419026563//1
+	//	-264//1    0//1  -189//1    -5508734318078//1                0//1  -103223937923385//1
+	//	-217//1  189//1     0//1    43844419026563//1  103223937923385//1                 0//1
+	//
+	// julia> b = convert.(Rational{BigInt}, b)
+	// 6-element Vector{Rational{BigInt}}:
+	//
+	//	 253272092906289236//1
+	//	-176494111899373241//1
+	//	 -86121244757592470//1
+	//	 130371393416448612//1
+	//	-126444322683260882//1
+	//	 -10438126183380763//1
+	//
+	// julia> M\b
+	// 6-element Vector{Rational{BigInt}}:
+	//
+	//	 287838354624648//1
+	//	 412952398656862//1
+	//	 148587016955395//1
+	//	              -5//1
+	//	            -250//1
+	//	             217//1
+	//	}
+}
+
+// CrossMatrix takes a vector u and returns the cross matrix
+// [u]˟ such that u x v = [u]˟ v, given by
+//
+//	[   0  -uz   uy ]
+//
+// [u]˟ = [  uz    0  -ux ]
+//
+//	[ -uy   ux    0 ]
+func (u BigRatVec3) CrossMatrix() Mat33 {
+	return Mat33{
+		big.NewRat(0, 1), new(big.Rat).Neg(u.Z), u.Y,
+		u.Z, big.NewRat(0, 1), new(big.Rat).Neg(u.X),
+		new(big.Rat).Neg(u.Y), u.X, big.NewRat(0, 1),
+	}
+}
+
+func (u BigRatVec3) Cross(v BigRatVec3) BigRatVec3 {
+	return BigRatVec3{
+		new(big.Rat).Sub(
+			new(big.Rat).Mul(u.Y, v.Z),
+			new(big.Rat).Mul(u.Z, v.Y)),
+		new(big.Rat).Sub(
+			new(big.Rat).Mul(u.Z, v.X),
+			new(big.Rat).Mul(u.X, v.Z)),
+		new(big.Rat).Sub(
+			new(big.Rat).Mul(u.X, v.Y),
+			new(big.Rat).Mul(u.Y, v.X),
+		),
+	}
+}
+
+/*
+* h0(t) = p0 + t * v0
+* h1(t) = p1 + t * v1
+* h2(t) = p2 + t * v2
+* ...
+* hn(t) = pn + t * vn
+*
+* h0(t1) = h1(t1)
+* h0(t2) = h2(t2)
+* h0(t3) = h3(t3)
+*
+* p0 + t1 * v0 = p1 + t1 * v1
+* p0 + t2 * v0 = p2 + t2 * v2
+* p0 + t3 * v0 = p3 + t3 * v3
+*
+* Pick only x dimension:
+*
+* px0 + t1 * vx0 = px1 + t1 * vx1
+* px0 + t2 * vx0 = px2 + t2 * vx2
+* ...
+* px0 + tn * vx0 = pxn + tn * vxn
+*
+* 1 equation, 3 unknown
+* px0 + t1 * vx0 = px1 + t1 * vx1
+*
+* 2 equations, 4 unknown
+* px0 + t1 * vx0 = px1 + t1 * vx1
+* px0 + tn * vx0 = pxn + tn * vxn
+*
+*
+* 3 equations, 5 unknown
+* px0 + t1 * vx0 = px1 + t1 * vx1
+* px0 + t2 * vx0 = px2 + t2 * vx2
+* px0 + t3 * vx0 = px3 + t3 * vx3
+*
+*
+ */
 
 func InsideArea2D(p BigRatVec2, areaMin, areaMax *big.Rat) bool {
 	if p.X.Cmp(areaMin) < 0 {
@@ -248,11 +430,11 @@ func SegmentSegmentIntersection3D(A, B Hailstone) (p BigRatVec3, intersects bool
 	return LineLineIntersection3D(A, B)
 }
 
-func SegmentSegmentIntersection2D(hA, hB Hailstone) (q BigRatVec2, intersects bool) {
-	return LineLineIntersection2D(hA, hB)
+func SegmentSegmentIntersection2D(xA, yA, xAv, yAv, xB, yB, xBv, yBv *big.Rat) (q BigRatVec2, intersects bool) {
+	return LineLineIntersection2D(xA, yA, xAv, yAv, xB, yB, xBv, yBv)
 }
 
-func LineLineIntersection2D(hA, hB Hailstone) (p BigRatVec2, intersects bool) {
+func LineLineIntersection2D(xA, yA, xAv, yAv, xB, yB, xBv, yBv *big.Rat) (p BigRatVec2, intersects bool) {
 	// Matrix form (z = 0), 2 dimensions:
 	//
 	// [ yA'  -xA' ]     [ x ]     [ xA yA' - yA xA' ]
@@ -295,10 +477,10 @@ func LineLineIntersection2D(hA, hB Hailstone) (p BigRatVec2, intersects bool) {
 	//
 	//
 	//
-	a11 := hA.Vel.Y
-	a12 := new(big.Rat).Neg(hA.Vel.X)
-	a21 := hB.Vel.Y
-	a22 := new(big.Rat).Neg(hB.Vel.X)
+	a11 := yAv // hA.Vel.Y
+	a12 := new(big.Rat).Neg(xAv)
+	a21 := yBv
+	a22 := new(big.Rat).Neg(xBv)
 
 	A := Mat2{
 		a11, a12,
@@ -308,11 +490,11 @@ func LineLineIntersection2D(hA, hB Hailstone) (p BigRatVec2, intersects bool) {
 	//  [ xA yA' - yA xA' ]
 	//  [ xB yB' - yB xB' ]
 	b1 := new(big.Rat)
-	b1.Add(b1, new(big.Rat).Mul(hA.Pos.X, hA.Vel.Y))
-	b1.Sub(b1, new(big.Rat).Mul(hA.Pos.Y, hA.Vel.X))
+	b1.Add(b1, new(big.Rat).Mul(xA, yAv))
+	b1.Sub(b1, new(big.Rat).Mul(yA, xAv))
 	b2 := new(big.Rat)
-	b2.Add(b2, new(big.Rat).Mul(hB.Pos.X, hB.Vel.Y))
-	b2.Sub(b2, new(big.Rat).Mul(hB.Pos.Y, hB.Vel.X))
+	b2.Add(b2, new(big.Rat).Mul(xB, yBv))
+	b2.Sub(b2, new(big.Rat).Mul(yB, xBv))
 	b := BigRatVec2{X: b1, Y: b2}
 
 	D := A.Det()
@@ -324,6 +506,7 @@ func LineLineIntersection2D(hA, hB Hailstone) (p BigRatVec2, intersects bool) {
 	if b.X == nil || b.Y == nil {
 		panic("issa nil")
 	}
+	fmt.Println("solving A = b", A, b)
 	return A.Solve(b)
 }
 
@@ -490,6 +673,10 @@ func LineLineIntersection3D(hA, hB Hailstone) (p BigRatVec3, intersects bool) {
 type Mat2 struct {
 	a11, a12 *big.Rat
 	a21, a22 *big.Rat
+}
+
+func (m Mat2) String() string {
+	return fmt.Sprintf("[%v, %v; %v, %v]", m.a11, m.a12, m.a21, m.a22)
 }
 
 func (m Mat2) Det() *big.Rat {
@@ -786,15 +973,42 @@ func (m Mat63) Atb(v BigRatVec6) BigRatVec3 {
 	// }
 }
 
-func ReadInput() []Hailstone {
+func ReadInput(f string) []Hailstone {
 	hailstones := []Hailstone{}
-	for _, line := range aocutil.ReadLines("input.txt") {
+	for _, line := range aocutil.ReadLines(f) {
 		nums := aocutil.GetIntsInString(line)
 		pos := NewBigRatVec3(nums[0], nums[1], nums[2])
 		vel := NewBigRatVec3(nums[3], nums[4], nums[5])
 		hailstones = append(hailstones, Hailstone{Pos: pos, Vel: vel})
 	}
+
 	return hailstones
+}
+
+func Min(a, b *big.Rat) *big.Rat {
+	if a.Cmp(b) < 0 {
+		return a
+	}
+	return b
+}
+
+// Mean returns the mean position and velocity of a slice of Hailstones.
+func Mean(hs []Hailstone) Hailstone {
+	sum := Hailstone{
+		Pos: NewBigRatVec3(0, 0, 0),
+		Vel: NewBigRatVec3(0, 0, 0),
+	}
+
+	for _, h := range hs {
+		sum.Pos = sum.Pos.Add(h.Pos) // sum.Pos += h.Pos
+		sum.Vel = sum.Vel.Add(h.Vel) // sum.Vel += h.Vel
+	}
+
+	n := big.NewRat(int64(len(hs)), 1)
+	sum.Pos = sum.Pos.Quo(n) // sum.Pos /= n
+	sum.Vel = sum.Vel.Quo(n) // sum.Vel /= n
+
+	return sum
 }
 
 // 1155 too low
