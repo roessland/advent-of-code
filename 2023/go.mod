@@ -1,6 +1,6 @@
 module github.com/roessland/advent-of-code/2023
 
-go 1.21.1
+go 1.23
 
 require (
 	github.com/charmbracelet/bubbletea v0.25.0
@@ -30,7 +30,7 @@ require (
 	github.com/charmbracelet/bubbles v0.17.1
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/roessland/gopkg v1.7.0 // indirect
+	github.com/roessland/gopkg v1.8.0 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
