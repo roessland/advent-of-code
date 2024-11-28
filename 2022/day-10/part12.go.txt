@@ -1,0 +1,124 @@
+package main
+
+import (
+	"bufio"
+	"embed"
+	_ "embed"
+	"fmt"
+	"log"
+	"strconv"
+	"strings"
+)
+
+//go:embed input.txt input-ex*.txt
+var inputFiles embed.FS
+
+func main() {
+	part1()
+}
+
+func part1() {
+	instructions := ReadInput()
+	fmt.Println(instructions)
+
+	vm := Vm{
+		IP:    0,
+		Queue: make(map[int][]Instr),
+		X:     1,
+	}
+
+	cycle := 1
+	for len(vm.Queue) > 0 || vm.IP < len(instructions) {
+		if vm.IP < len(instructions) {
+			// If remaining instructions, add to queue
+			instr := instructions[vm.IP]
+			vm.Queue[instr.Duration] = append(vm.Queue[instr.Duration], instr)
+		}
+
+		fmt.Println(cycle, vm.X)
+
+		// Decrement delay for all instructions in queue
+		// Execute instructions with delay=0
+		for len(vm.Queue) > 0 {
+
+		}
+		var doneInstrs []Instr
+		doneInstrs, vm.Queue = nextQueue(vm.Queue)
+
+		for _, instr := range doneInstrs {
+			switch instr.Type {
+			case InstrTypeNoop:
+				continue
+			case InstrTypeAddx:
+				vm.X += instr.Val
+			}
+		}
+
+		vm.IP++
+		cycle++
+	}
+	fmt.Println(cycle, vm.X)
+
+}
+
+func nextQueue(queue map[int][]Instr) ([]Instr, map[int][]Instr) {
+	next := make(map[int][]Instr)
+	for delay, instrs := range queue {
+		if delay > 1 {
+			next[delay-1] = instrs
+		}
+	}
+	return queue[1], next
+}
+
+type Vm struct {
+	IP                  int
+	Queue               map[int][]Instr
+	X                   int
+	CurrInstr           Instr
+	CurrInstrCyclesLeft int
+}
+
+type Instr struct {
+	Type     InstrType
+	Val      int
+	Duration int
+}
+
+type InstrType string
+
+const InstrTypeNoop InstrType = "noop"
+const InstrTypeAddx InstrType = "addx"
+
+func ReadInput() []Instr {
+	f, err := inputFiles.Open("input-ex.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var instrs []Instr
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, " ")
+		switch InstrType(parts[0]) {
+		case InstrTypeNoop:
+			instrs = append(instrs, Instr{
+				Type:     InstrTypeNoop,
+				Duration: 1,
+			})
+		case InstrTypeAddx:
+			num, err := strconv.Atoi(parts[1])
+			if err != nil {
+				log.Fatal(err)
+			}
+			instrs = append(instrs, Instr{
+				Type:     InstrTypeAddx,
+				Val:      num,
+				Duration: 2,
+			})
+		}
+
+	}
+	return instrs
+}
