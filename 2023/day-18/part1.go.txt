@@ -1,0 +1,193 @@
+package main
+
+import (
+	"fmt"
+	"regexp"
+	"strconv"
+
+	"github.com/roessland/advent-of-code/2023/aocutil"
+)
+
+type Dir byte
+
+const (
+	Right Dir = 'R'
+	Up    Dir = 'U'
+	Left  Dir = 'L'
+	Down  Dir = 'D'
+)
+
+func main() {
+	input := ReadInput()
+	part1(input)
+}
+
+type Instruction struct {
+	Meters int
+	Color  [3]byte
+	Dir    Dir
+}
+
+type DigPlan []Instruction
+
+func ReadInput() DigPlan {
+	var digPlan DigPlan
+
+	// lines := aocutil.ReadLines("input-ex1.txt")
+	lines := aocutil.ReadLines("input-ex1.txt")
+	re := regexp.MustCompile(`([UDLR]) (\d+) \(#([0-9a-f]{5})([0-4])\)`)
+	for _, line := range lines {
+		match := re.FindStringSubmatch(line)
+		meters, err := strconv.ParseInt(match[3], 16, 32)
+		if err != nil {
+			panic(err)
+		}
+		var dir Dir
+		dirNo := match[4]
+		if dirNo == "0" {
+			dir = Right
+		} else if dirNo == "1" {
+			dir = Up
+		} else if dirNo == "2" {
+			dir = Left
+		} else if dirNo == "3" {
+			dir = Down
+		} else {
+			panic("invalid dir")
+		}
+		digPlan = append(digPlan, Instruction{Dir: dir, Meters: int(meters)})
+	}
+	return digPlan
+}
+
+type Map struct {
+	Cells  [][]byte
+	Height int
+	Width  int
+}
+
+func NewMap(height, width int) *Map {
+	cells := make([][]byte, height)
+	for i := range cells {
+		cells[i] = make([]byte, width)
+	}
+	return &Map{Cells: cells, Height: height, Width: width}
+}
+
+func (m *Map) Print() {
+	for _, row := range m.Cells {
+		for _, cell := range row {
+			if cell == 0 || cell == '.' {
+				fmt.Printf(" ")
+			} else {
+				fmt.Printf("█")
+			}
+		}
+		fmt.Println()
+	}
+	fmt.Println()
+}
+
+func dx(dir Dir) int {
+	switch dir {
+	case Right:
+		return 1
+	case Left:
+		return -1
+	default:
+		return 0
+	}
+}
+
+func dy(dir Dir) int {
+	switch dir {
+	case Up:
+		return -1
+	case Down:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func part1(input DigPlan) {
+	m := NewMap(315, 550)
+
+	y, x := 100, 5
+
+	digLoop(input, y, x, m)
+	y0, x0 := findSomeInteriorCell(m)
+	floodFill(m, nil, y0, x0)
+	size := measureTrenchSize(m)
+	fmt.Println("size:", size)
+
+	// m.Print()
+}
+
+type Pos struct {
+	Y, X int
+}
+
+func floodFill(m *Map, filled map[Pos]bool, y, x int) {
+	if filled == nil {
+		filled = make(map[Pos]bool)
+	}
+
+	if filled[Pos{y, x}] || m.Cells[y][x] == '#' {
+		return
+	}
+
+	filled[Pos{y, x}] = true
+	m.Cells[y][x] = '#'
+	floodFill(m, filled, y+1, x)
+	floodFill(m, filled, y-1, x)
+	floodFill(m, filled, y, x+1)
+	floodFill(m, filled, y, x-1)
+}
+
+func findSomeInteriorCell(m *Map) (y, x int) {
+	firstRow := true
+	for y, row := range m.Cells {
+		isInterior := false
+		for x, cell := range row {
+			if cell == '#' && firstRow {
+				firstRow = false
+				break
+			}
+			if cell == '#' {
+				isInterior = true
+				continue
+			}
+			if cell != '#' && isInterior {
+				return y, x
+			}
+		}
+	}
+	panic("no interior cell found")
+}
+
+func digLoop(input DigPlan, y int, x int, m *Map) {
+	for _, instr := range input {
+		for i := 0; i < instr.Meters; i++ {
+			y += dy(instr.Dir)
+			x += dx(instr.Dir)
+			if x < 0 || x >= m.Width || y < 0 || y >= m.Height {
+				fmt.Println(y, x)
+				panic("increase map size")
+			}
+			m.Cells[y][x] = '#'
+		}
+	}
+}
+
+func measureTrenchSize(m *Map) int {
+	size := 0
+	for _, row := range m.Cells {
+		for _, cell := range row {
+			if cell == '#' {
+				size++
+			}
+		}
+	}
+	return size
+}
