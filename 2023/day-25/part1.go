@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/roessland/advent-of-code/2023/aocutil"
 	"github.com/roessland/gopkg/graph/karger"
@@ -34,16 +35,17 @@ func main() {
 	g := karger.NewUnweightedGraph(len(vertices))
 	g.Edges = edges
 
-	greatest := 0
-	for i := 0; i < 1000000; i++ {
-		result := karger.Karger(g)
-		alt := result.SizeA * result.SizeB
-		if len(result.Edges) != 3 {
-			continue
-		}
-		if alt > greatest {
-			greatest = alt
-			fmt.Println(greatest, result)
+	t0 := time.Now()
+	for i := 0; i < 100000; i++ {
+		res := karger.Karger(g)
+
+		if len(res.Edges) == 3 && res.SizeA > 1 && res.SizeB > 1 {
+			ans := res.SizeA * res.SizeB
+			fmt.Println("---")
+			fmt.Println("Answer: ", ans)
+			fmt.Println("Time: ", time.Since(t0))
+			fmt.Println("(Took ", i, "iterations)")
+			break
 		}
 	}
 }
