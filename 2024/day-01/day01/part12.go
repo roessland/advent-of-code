@@ -9,7 +9,7 @@ import (
 )
 
 //go:embed input*.txt
-var inputDir embed.FS
+var Input embed.FS
 
 type ID int
 
@@ -40,14 +40,19 @@ type Number struct {
 	LocationID int
 }
 
-func Part1(inputName string) int {
-	rows := aocutil.ReadFileAsInts(inputDir, inputName)
+func ReadInput(inputName string) ([]ID, []ID) {
+	rows := aocutil.ReadFileAsInts(Input, inputName)
 	lefts, rights := Unzip(rows)
+	return lefts, rights
+}
+
+func Part1(inputName string) int {
+	lefts, rights := ReadInput(inputName)
 	SortByID(lefts)
 	SortByID(rights)
 
 	sum := 0
-	for i := range rows {
+	for i := range lefts {
 		sum += mathutil.AbsInt(int(rights[i] - lefts[i]))
 	}
 	return sum
@@ -62,8 +67,7 @@ func Frequencies(ids []ID) map[ID]int {
 }
 
 func Part2(inputName string) int {
-	rows := aocutil.ReadFileAsInts(inputDir, inputName)
-	lefts, rights := Unzip(rows)
+	lefts, rights := ReadInput(inputName)
 	rightFreqs := Frequencies(rights)
 
 	sum := 0
