@@ -113,6 +113,15 @@ func ReadLinesAsBytes(filename string) [][]byte {
 	return bytes.Split(bytes.TrimSuffix(f, []byte("\n")), []byte("\n"))
 }
 
+func FSReadLinesAsBytes(dirFS fs.FS, filename string) [][]byte {
+	dirFS_ := unwrapReadFileFS(dirFS)
+	f, err := dirFS_.ReadFile(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return bytes.Split(bytes.TrimSuffix(f, []byte("\n")), []byte("\n"))
+}
+
 func unwrapReadFileFS(dirFS fs.FS) fs.ReadFileFS {
 	if rfs, ok := dirFS.(fs.ReadFileFS); ok {
 		return rfs
