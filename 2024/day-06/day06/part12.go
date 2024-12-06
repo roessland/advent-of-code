@@ -48,15 +48,15 @@ func ReadInput(inputName string) ([][]byte, Vec, Vec) {
 	panic("no ^ found")
 }
 
-func Next(m [][]byte, currPos, currDir, obstacle Vec) (nextPos, nextDir Vec) {
+func Next(m [][]byte, currPos, currDir, obstacle Vec) (nextPos, nextDir Vec, hitWall bool) {
 	nextPos = currPos.Add(currDir)
 	if IsOutOfBounds(m, nextPos) {
-		return nextPos, currDir
+		return nextPos, currDir, false
 	}
 	if m[nextPos.Y][nextPos.X] == '#' || nextPos == obstacle {
-		return currPos, currDir.TurnRight()
+		return currPos, currDir.TurnRight(), true
 	}
-	return nextPos, currDir
+	return nextPos, currDir, false
 }
 
 func IsOutOfBounds(m [][]byte, pos Vec) bool {
@@ -70,20 +70,26 @@ func Part12(inputName string) (int, int) {
 	currPos, currDir := startPos, startDir
 	for !IsOutOfBounds(m, currPos) {
 		visitedWithoutObstacle[currPos] = true
-		currPos, currDir = Next(m, currPos, currDir, Vec{-1, -1})
+		currPos, currDir, _ = Next(m, currPos, currDir, Vec{-1, -1})
 	}
 
 	possiblePositions := 0
 	for obstaclePosition := range visitedWithoutObstacle {
 		currPos, currDir := startPos, startDir
 		visited := map[VecPair]bool{}
+
+		// Optimization: Only store positions where we crashed into a wall.
+		// Improves runtime by ~10x.
+		hitWall := false
 		for !IsOutOfBounds(m, currPos) {
-			if visited[VecPair{currPos, currDir}] {
-				possiblePositions++
-				break
+			if hitWall {
+				if visited[VecPair{currPos, currDir}] {
+					possiblePositions++
+					break
+				}
+				visited[VecPair{currPos, currDir}] = true
 			}
-			visited[VecPair{currPos, currDir}] = true
-			currPos, currDir = Next(m, currPos, currDir, obstaclePosition)
+			currPos, currDir, hitWall = Next(m, currPos, currDir, obstaclePosition)
 		}
 	}
 
