@@ -29,6 +29,9 @@ func GetIntsInString(line string) []int {
 func GetNumsInString[N ~int](line string) []N {
 	lineRe := regexp.MustCompile(`(^|[^a-zA-Z])(-?\d+)`)
 	matches := lineRe.FindAllStringSubmatch(line, -1)
+	if len(matches) == 0 {
+		return nil
+	}
 	nums := make([]N, 0, len(matches)-1)
 	for _, match := range matches {
 		n, err := strconv.Atoi(strings.TrimSpace(match[2]))
