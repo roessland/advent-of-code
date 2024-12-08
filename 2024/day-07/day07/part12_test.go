@@ -23,17 +23,6 @@ func TestPart12(t *testing.T) {
 	}
 }
 
-// 145397522322159 too low
-func TestCanBeMade2(t *testing.T) {
-	irrelevant := 1
-	assert.True(t, day07.CanBeTrue2([]int{1}, 1, irrelevant))
-	assert.True(t, day07.CanBeTrue2([]int{0}, 0, irrelevant))
-	assert.True(t, day07.CanBeTrue2([]int{1337}, 1337, irrelevant))
-	assert.True(t, day07.CanBeTrue2([]int{1337, 1}, 1338, irrelevant))
-	assert.True(t, day07.CanBeTrue2([]int{1337, 1}, 13371, irrelevant))
-	assert.True(t, day07.CanBeTrue2([]int{1337, 2}, 1337*2, irrelevant))
-}
-
 func TestCat(t *testing.T) {
 	assert.Equal(t, 100, day07.Order(101))
 	assert.Equal(t, 100, day07.Order(100))

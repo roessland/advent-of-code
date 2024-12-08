@@ -9,76 +9,17 @@ import (
 //go:embed input*.txt
 var Input embed.FS
 
-type Eq struct {
-	Numbers           []int
-	CalibrationResult int
-}
-
-func ReadInput(inputName string) []Eq {
-	eqs := make([]Eq, 0)
-	in := aocutil.FSGetIntsInStringLines(Input, inputName)
-	for _, line := range in {
-		eqs = append(eqs, Eq{
-			CalibrationResult: line[0],
-			Numbers:           line[1:],
-		})
-	}
-	return eqs
-}
-
-func CanBeTrue1(nums []int, target int) bool {
-	if len(nums) == 0 {
+func CanBeTrue(result int, fst int, rest []int, canCat bool) bool {
+	if fst > result { // Around 25% speedup
 		return false
 	}
-	if len(nums) == 1 {
-		return nums[0] == target
+	if len(rest) == 0 {
+		return fst == result
 	}
 
-	original := nums[1]
-	defer func() { nums[1] = original }()
-
-	add := nums[0] + nums[1]
-	mul := nums[0] * nums[1]
-
-	nums[1] = mul
-	if CanBeTrue1(nums[1:], target) {
-		return true
-	}
-
-	nums[1] = add
-	return CanBeTrue1(nums[1:], target)
-}
-
-func CanBeTrue2(nums []int, target int, d int) bool {
-	if len(nums) == 0 || nums[0] > target {
-		return false
-	}
-	if len(nums) == 1 {
-		return nums[0] == target
-	}
-
-	original := nums[1]
-	add := nums[0] + nums[1]
-	mul := nums[0] * nums[1]
-	cat := Cat(nums[0], nums[1])
-
-	nums[1] = mul
-	if CanBeTrue2(nums[1:], target, d+1) {
-		return true
-	}
-
-	nums[1] = add
-	if CanBeTrue2(nums[1:], target, d+1) {
-		return true
-	}
-
-	nums[1] = cat
-	if CanBeTrue2(nums[1:], target, d+1) {
-		return true
-	}
-
-	nums[1] = original
-	return false
+	return CanBeTrue(result, fst+rest[0], rest[1:], canCat) ||
+		CanBeTrue(result, fst*rest[0], rest[1:], canCat) ||
+		(canCat && CanBeTrue(result, Cat(fst, rest[0]), rest[1:], canCat))
 }
 
 func Cat(a, b int) int {
@@ -95,14 +36,16 @@ func Order(b int) int {
 }
 
 func Part12(inputName string) (int, int) {
-	input := ReadInput(inputName)
+	input := aocutil.FSGetIntsInStringLines(Input, inputName)
 	sum1, sum2 := 0, 0
-	for _, eq := range input {
-		if CanBeTrue1(eq.Numbers, eq.CalibrationResult) {
-			sum1 += eq.CalibrationResult
+	for _, line := range input {
+		res, fst, rest := line[0], line[1], line[2:]
+
+		if CanBeTrue(res, fst, rest, false) {
+			sum1 += res
 		}
-		if CanBeTrue2(eq.Numbers, eq.CalibrationResult, 0) {
-			sum2 += eq.CalibrationResult
+		if CanBeTrue(res, fst, rest, true) {
+			sum2 += res
 		}
 	}
 	return sum1, sum2
