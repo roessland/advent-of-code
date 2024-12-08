@@ -53,6 +53,11 @@ func GetIntsInStringLines(f string) [][]int {
 	return ints
 }
 
+func FSGetIntsInStringLines(dirFS fs.FS, fileName string) [][]int {
+	buf := FSReadFile(dirFS, fileName)
+	return GetIntsInStringLines(buf)
+}
+
 // ReadFileAsInts as ints returns a [][]int from a file, where each line is a []int.
 // Any non-integer characters are ignored. Examples:
 //
