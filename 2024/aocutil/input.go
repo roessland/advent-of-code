@@ -127,6 +127,38 @@ func FSReadLinesAsBytes(dirFS fs.FS, filename string) [][]byte {
 	return bytes.Split(bytes.TrimSuffix(f, []byte("\n")), []byte("\n"))
 }
 
+func PadMap(m [][]byte, padding int, c byte) [][]byte {
+	height := len(m)
+	width := len(m[0])
+	height_ := height + 2*padding
+	width_ := width + 2*padding
+
+	m_ := make([][]byte, height_)
+
+	for i := 0; i < padding; i++ {
+		m_[i] = bytes.Repeat([]byte{c}, width_)
+		m_[height_-i-1] = bytes.Repeat([]byte{c}, width_)
+	}
+
+	for y_ := padding; y_ < height_-padding; y_++ {
+		y := y_ - padding
+		m_[y_] = make([]byte, width_)
+		copy(m_[y_][padding:], m[y])
+		for p := 0; p < padding; p++ {
+			m_[y_][p] = c
+			m_[y_][width_-p-1] = c
+		}
+	}
+
+	return m_
+}
+
+func PrintCharMap(m [][]byte) {
+	for _, row := range m {
+		fmt.Println(string(row))
+	}
+}
+
 func unwrapReadFileFS(dirFS fs.FS) fs.ReadFileFS {
 	if rfs, ok := dirFS.(fs.ReadFileFS); ok {
 		return rfs

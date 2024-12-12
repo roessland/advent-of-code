@@ -12,7 +12,7 @@ func TestPart1Example1(t *testing.T) {
 }
 
 func TestPart2Example1(t *testing.T) {
-	assert.Equal(t, 4, day02.Part2("input-ex1.txt"))
+	assert.Equal(t, 4, day02.Part2("input-ex1.txt", nil))
 }
 
 func TestPart1(t *testing.T) {
@@ -20,5 +20,5 @@ func TestPart1(t *testing.T) {
 }
 
 func TestPart2(t *testing.T) {
-	assert.Equal(t, 404, day02.Part2("input.txt"))
+	assert.Equal(t, 404, day02.Part2("input.txt", nil))
 }

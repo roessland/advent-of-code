@@ -7,8 +7,7 @@ import (
 )
 
 func main() {
-	// fmt.Println("Part 1:", day03.Part1("input.txt"))
-	// fmt.Println("Part 1:", day03.Part1("input-ex1.txt"))
-	fmt.Println("Part 2:", day03.Part2("input.txt"))
-	fmt.Println("Part 2:", day03.Part2("input-ex2.txt"))
+	a, b := day03.Part12("input.txt")
+	fmt.Println("Part 1:", a)
+	fmt.Println("Part 2:", b)
 }
