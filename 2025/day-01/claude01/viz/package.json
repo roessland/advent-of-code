@@ -1,0 +1,13 @@
+{
+  "name": "aoc-2025-day01-viz",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "dev": "npx http-server . -p 0 -o -c-1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "http-server": "^14.1.1"
+  }
+}
