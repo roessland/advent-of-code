@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/roessland/advent-of-code/2024/aocutil"
+	"github.com/roessland/advent-of-code/2025/aocutil"
 	"github.com/roessland/gopkg/mathutil"
 )
 

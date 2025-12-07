@@ -5,7 +5,7 @@ import (
 	"embed"
 	"iter"
 
-	"github.com/roessland/advent-of-code/2024/aocutil"
+	"github.com/roessland/advent-of-code/2025/aocutil"
 )
 
 //go:embed input*.txt
