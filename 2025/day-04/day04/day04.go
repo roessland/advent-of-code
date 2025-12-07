@@ -19,25 +19,16 @@ type Pos struct {
 }
 
 func AdjacentPositions(grid [][]byte, p Pos) (ns []Pos) {
-	var cs []Pos
-	cs = append(cs, Pos{p.I - 1, p.J - 1})
-	cs = append(cs, Pos{p.I - 1, p.J - 0})
-	cs = append(cs, Pos{p.I - 1, p.J + 1})
-
-	cs = append(cs, Pos{p.I, p.J - 1})
-	cs = append(cs, Pos{p.I, p.J + 1})
-
-	cs = append(cs, Pos{p.I + 1, p.J - 1})
-	cs = append(cs, Pos{p.I + 1, p.J - 0})
-	cs = append(cs, Pos{p.I + 1, p.J + 1})
-	for _, c := range cs {
-		if c.I < 0 || c.I >= len(grid) {
-			continue
+	for di := -1; di <= 1; di++ {
+		for dj := -1; dj <= 1; dj++ {
+			if di == 0 && dj == 0 {
+				continue
+			}
+			c := Pos{p.I + di, p.J + dj}
+			if c.I >= 0 && c.I < len(grid) && c.J >= 0 && c.J < len(grid[0]) {
+				ns = append(ns, c)
+			}
 		}
-		if c.J < 0 || c.J >= len(grid[0]) {
-			continue
-		}
-		ns = append(ns, c)
 	}
 	return ns
 }
@@ -79,17 +70,19 @@ func Part1(grid [][]byte) (accessible int) {
 	return accessible
 }
 
-// Part2 returns number of rolls of paper that can eventually accessed
+// Part2 returns number of rolls of paper that can eventually be accessed
 func Part2(grid [][]byte) (accessible int) {
-	for done := false; !done; {
-		done = true
+	for {
+		found := false
 		ForEachPosition(grid, func(p Pos, c byte) {
 			if Accessible(grid, p) {
 				accessible++
 				grid[p.I][p.J] = '.'
-				done = false
+				found = true
 			}
 		})
+		if !found {
+			return accessible
+		}
 	}
-	return accessible
 }

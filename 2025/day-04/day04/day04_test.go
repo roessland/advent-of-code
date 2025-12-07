@@ -14,5 +14,5 @@ func TestReadInput(t *testing.T) {
 
 	input := day04.ReadInput("input.txt")
 	require.Equal(t, 1523, day04.Part1(input))
-	require.Equal(t, 1523, day04.Part2(input))
+	require.Equal(t, 9290, day04.Part2(input))
 }
