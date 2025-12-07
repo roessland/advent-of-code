@@ -72,8 +72,7 @@ func (r Range) Sub(s Range) []Range {
 		return []Range{{r.A, s.A - 1}, {s.B + 1, r.B}}
 	}
 
-	fmt.Println("wat", r, s)
-	panic("wat")
+	panic(fmt.Sprintf("BUG: Range.Sub: unhandled case r=%v s=%v", r, s))
 }
 
 func IsFresh(ranges []Range, id int) bool {
@@ -97,24 +96,16 @@ func Part1(ranges []Range, ids []int) int {
 
 func Part2(A []Range) int {
 	// Take a range. Subtract it from all ranges in A, then move it to B.
-	B := []Range{}
+	B := make([]Range, 0, len(A))
 	for len(A) > 0 {
 		// Pop range b from A
 		b := A[len(A)-1]
 		A = A[:len(A)-1]
 
 		// Remove b from each range in A
-		var nextA []Range
+		nextA := make([]Range, 0, len(A)*2)
 		for _, a := range A {
-			aSubB := a.Sub(b)
-			if len(aSubB) == 0 {
-				continue
-			} else if len(aSubB) == 1 {
-				nextA = append(nextA, aSubB[0])
-			} else if len(aSubB) == 2 {
-				nextA = append(nextA, aSubB[0])
-				nextA = append(nextA, aSubB[1])
-			}
+			nextA = append(nextA, a.Sub(b)...)
 		}
 
 		// Add b to B. Invariant: No overlap between elements in B.
